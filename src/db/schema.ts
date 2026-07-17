@@ -1,5 +1,7 @@
 import { randomUUID } from "crypto";
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   jsonb,
@@ -70,6 +72,8 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "failed",
 ]);
 
+export const userRoleEnum = pgEnum("user_role", ["tenant_owner", "admin"]);
+
 // ---------------------------------------------------------------------------
 // tenants
 // ---------------------------------------------------------------------------
@@ -102,6 +106,11 @@ export const tenants = pgTable(
     // relying on email matching alone.
     polarCustomerReference: varchar("polar_customer_reference", {
       length: 128,
+    }),
+    // Stamped when the admin sends a Polar checkout link (Prompt 2.5) so the
+    // admin list shows whether/when a link went out — avoids blind re-sends.
+    paymentLinkSentAt: timestamp("payment_link_sent_at", {
+      withTimezone: true,
     }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -309,6 +318,53 @@ export const invoices = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// users
+//
+// Created ONLY by the Polar activation webhook (Prompt 2.5) for tenants, and
+// by the seed script for the single admin. A 'pending_payment' tenant never
+// has a users row — no login can exist before payment. Hard invariant.
+// ---------------------------------------------------------------------------
+
+export const users = pgTable(
+  "users",
+  {
+    id: varchar("id", { length: 64 })
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    // DIVERGENCE FROM SPEC (flagged in PR): the spec marks tenantId NOT NULL,
+    // but the admin user (role 'admin') belongs to no tenant. Rather than
+    // fabricate a fake tenant row, tenantId is nullable with a CHECK below
+    // enforcing that ONLY admins may have it null — every tenant_owner row
+    // still requires a tenant, exactly as the spec intends.
+    tenantId: varchar("tenant_id", { length: 64 }).references(() => tenants.id),
+    // Always stored lowercased — normalize at every app boundary before
+    // insert or lookup.
+    email: varchar("email", { length: 256 }).notNull(),
+    // Null until the set-password flow completes. A user with a null hash can
+    // never authenticate.
+    passwordHash: varchar("password_hash", { length: 256 }),
+    role: userRoleEnum("role").notNull().default("tenant_owner"),
+    // Stores the SHA-256 HEX DIGEST of the raw token, never the raw token —
+    // a leaked DB row cannot be replayed into a working set-password link.
+    setPasswordToken: varchar("set_password_token", { length: 128 }),
+    setPasswordTokenExpiresAt: timestamp("set_password_token_expires_at", {
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("users_email_idx").on(t.email),
+    index("users_tenant_id_idx").on(t.tenantId),
+    check(
+      "users_admin_or_tenant_check",
+      sql`${t.role} = 'admin' OR ${t.tenantId} IS NOT NULL`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Inferred TypeScript types
 // ---------------------------------------------------------------------------
 
@@ -322,3 +378,5 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type NewSubscription = typeof subscriptions.$inferInsert;
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
