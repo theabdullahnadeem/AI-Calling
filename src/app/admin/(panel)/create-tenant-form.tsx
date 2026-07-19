@@ -69,6 +69,15 @@ export function CreateTenantForm() {
             <option value="pro">Pro — $2,200/mo</option>
           </select>
         </label>
+        <label>
+          Retell agent ID (optional — set later once the agent exists)
+          <input
+            name="retellAgentId"
+            maxLength={128}
+            placeholder="agent_…"
+            style={{ ...inputStyle, fontFamily: "monospace" }}
+          />
+        </label>
       </div>
       <label style={{ display: "block", marginTop: 16 }}>
         Intake schema (JSON — defines this tenant&apos;s booking fields)

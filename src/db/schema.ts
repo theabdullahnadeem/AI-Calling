@@ -112,11 +112,19 @@ export const tenants = pgTable(
     paymentLinkSentAt: timestamp("payment_link_sent_at", {
       withTimezone: true,
     }),
+    // SPEC ADDITION (flagged in PR): Retell webhooks identify calls only by
+    // agent_id, so tenant attribution needs this mapping. Set in the admin
+    // panel once the agent is configured in Retell's dashboard (docs/02 §1).
+    // Unique — one agent must never serve two tenants.
+    retellAgentId: varchar("retell_agent_id", { length: 128 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
-  (t) => [uniqueIndex("tenants_slug_idx").on(t.slug)],
+  (t) => [
+    uniqueIndex("tenants_slug_idx").on(t.slug),
+    uniqueIndex("tenants_retell_agent_id_idx").on(t.retellAgentId),
+  ],
 );
 
 // ---------------------------------------------------------------------------

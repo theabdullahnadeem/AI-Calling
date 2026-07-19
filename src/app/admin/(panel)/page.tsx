@@ -1,6 +1,7 @@
 import { desc } from "drizzle-orm";
 
 import { db, tenants } from "@/db";
+import { AgentIdForm } from "./agent-id-form";
 import { CreateTenantForm } from "./create-tenant-form";
 import { SendLinkButton } from "./send-link-button";
 
@@ -50,6 +51,7 @@ export default async function AdminHomePage() {
                 "Type",
                 "Tier",
                 "Status",
+                "Retell agent",
                 "Link sent",
                 "Created",
                 "",
@@ -71,7 +73,7 @@ export default async function AdminHomePage() {
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   style={{ padding: "24px 12px", color: "#5B6472" }}
                 >
                   No tenants yet — create the first one below.
@@ -99,6 +101,12 @@ export default async function AdminHomePage() {
                     >
                       {t.status}
                     </span>
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <AgentIdForm
+                      tenantId={t.id}
+                      currentAgentId={t.retellAgentId}
+                    />
                   </td>
                   <td
                     style={{

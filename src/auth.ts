@@ -43,7 +43,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
         const { email, password } = parsed.data;
 
-        if (!loginRateLimit(clientIp(request), email).allowed) {
+        const limit = await loginRateLimit(clientIp(request), email);
+        if (!limit.allowed) {
           return null;
         }
 
