@@ -11,6 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "qstash:setup": "tsx scripts/setup-qstash.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "@neondatabase/serverless": "^1.0.1",
     "@polar-sh/sdk": "^0.48.1",
     "@trpc/server": "^11.18.0",
+    "@upstash/qstash": "^2.11.2",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.44.4",
