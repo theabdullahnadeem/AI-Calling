@@ -4,6 +4,10 @@ import Retell from "retell-sdk";
 import { z } from "zod";
 
 import { calls, db, tenants } from "@/db";
+import {
+  detectAndCreateBooking,
+  sendBookingEmailsAndRecord,
+} from "@/lib/booking";
 import { serverEnv } from "@/lib/env";
 import { archiveCallRecording } from "@/lib/recording";
 import { redis } from "@/lib/redis";
@@ -113,11 +117,12 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ received: true, duplicate: true });
   }
 
-  // Attribute the call to a tenant via the agent-id mapping.
+  // Attribute the call to a tenant via the agent-id mapping. Full row —
+  // call_analyzed's booking pipeline needs intakeSchema and ownerEmail.
   const agentId = call.agent_id;
   const [tenant] = agentId
     ? await db
-        .select({ id: tenants.id, status: tenants.status })
+        .select()
         .from(tenants)
         .where(eq(tenants.retellAgentId, agentId))
         .limit(1)
@@ -260,14 +265,20 @@ export async function POST(req: Request): Promise<Response> {
           );
         }
 
-        // Booking-intent check (which field to look at is per-tenant via
-        // tenants.intakeSchema). Prompt 5 implements the bookings write and
-        // Resend pipeline on top of this hook.
+        // Prompt 5: booking detection. Which field flags intent is
+        // per-tenant (tenants.intakeSchema), never hardcoded. The row write
+        // happens inside this handler (data integrity); the emails go out
+        // post-response so Resend latency can't fail the webhook ack.
         const customData = analysis?.custom_analysis_data;
         if (customData && Object.keys(customData).length > 0) {
-          console.log(
-            `[retell-webhook] call ${call.call_id} carries custom_analysis_data (booking pipeline lands in Prompt 5)`,
-          );
+          const bookingId = await detectAndCreateBooking({
+            tenant,
+            callId: call.call_id,
+            customData,
+          });
+          if (bookingId) {
+            after(() => sendBookingEmailsAndRecord(bookingId));
+          }
         }
         break;
       }
