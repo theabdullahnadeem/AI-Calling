@@ -18,6 +18,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // ws (the Neon Pool's WebSocket transport) must stay a real node_modules
+  // require: bundling it shims its optional native deps (bufferutil) into
+  // broken stubs and every DB query dies with "bufferUtil.mask is not a
+  // function".
+  serverExternalPackages: ["ws"],
   experimental: {
     // Enables forbidden() in server components (the /org layout's 403 path).
     authInterrupts: true,
