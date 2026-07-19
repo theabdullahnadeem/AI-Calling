@@ -1,9 +1,11 @@
+import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import Retell from "retell-sdk";
 import { z } from "zod";
 
 import { calls, db, tenants } from "@/db";
 import { serverEnv } from "@/lib/env";
+import { archiveCallRecording } from "@/lib/recording";
 import { redis } from "@/lib/redis";
 import {
   mapDirection,
@@ -31,6 +33,7 @@ const payloadSchema = z
         to_number: z.string().optional(),
         call_status: z.string().optional(),
         disconnection_reason: z.string().optional(),
+        recording_url: z.string().optional(),
         duration_ms: z.number().optional(),
         start_timestamp: z.number().optional(),
         end_timestamp: z.number().optional(),
@@ -199,9 +202,22 @@ export async function POST(req: Request): Promise<Response> {
         // Call is over — clear the live-status cache.
         await redis().del(`call:${tenant.id}:${call.call_id}`);
 
-        // Prompt 4 hooks in here: fetch the ephemeral recording_url and
-        // archive it to R2. Prompt 6: ingest the Polar usage event and
-        // increment minutesUsedThisCycle.
+        // Prompt 4: archive the ephemeral recording to R2 AFTER the webhook
+        // response is sent — audio transfer must not add to (or fail) the
+        // webhook's own latency budget. Failures retry + dead-letter inside.
+        if (call.recording_url) {
+          const sourceUrl = call.recording_url;
+          after(() =>
+            archiveCallRecording({
+              tenantId: tenant.id,
+              callId: call.call_id,
+              sourceUrl,
+            }),
+          );
+        }
+
+        // Prompt 6 hooks in here: ingest the Polar usage event and increment
+        // minutesUsedThisCycle.
         break;
       }
 
@@ -229,6 +245,20 @@ export async function POST(req: Request): Promise<Response> {
               transcript: call.transcript_object ?? null,
             },
           });
+
+        // Belt-and-suspenders: if call_ended was missed (or arrived without
+        // a recording_url), this event also carries it. The Redis claim in
+        // archiveCallRecording makes double-triggering a no-op.
+        if (call.recording_url) {
+          const sourceUrl = call.recording_url;
+          after(() =>
+            archiveCallRecording({
+              tenantId: tenant.id,
+              callId: call.call_id,
+              sourceUrl,
+            }),
+          );
+        }
 
         // Booking-intent check (which field to look at is per-tenant via
         // tenants.intakeSchema). Prompt 5 implements the bookings write and
