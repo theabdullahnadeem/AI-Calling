@@ -80,6 +80,17 @@ export function CreateTenantForm() {
         </label>
       </div>
       <label style={{ display: "block", marginTop: 16 }}>
+        Consent basis (optional — how this tenant obtains calling consent;
+        required before outbound calling can ever be enabled)
+        <textarea
+          name="consentBasis"
+          rows={2}
+          maxLength={2000}
+          placeholder='e.g. "Customers opt in to follow-up calls on the booking form."'
+          style={inputStyle}
+        />
+      </label>
+      <label style={{ display: "block", marginTop: 16 }}>
         Intake schema (JSON — defines this tenant&apos;s booking fields)
         <textarea
           name="intakeSchema"

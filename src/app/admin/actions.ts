@@ -31,6 +31,14 @@ const createTenantSchema = z.object({
     .max(128)
     .optional()
     .transform((v) => (v ? v : null)),
+  // Prompt 8 item 2: how this tenant states they obtain calling consent —
+  // captured at onboarding, free text, creates a documented record.
+  consentBasis: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .transform((v) => (v ? v : null)),
 });
 
 const TIER_LABELS = {
@@ -54,6 +62,7 @@ export async function createTenantAction(
     selectedTier: formData.get("selectedTier"),
     intakeSchema: formData.get("intakeSchema"),
     retellAgentId: formData.get("retellAgentId") ?? undefined,
+    consentBasis: formData.get("consentBasis") ?? undefined,
   });
   if (!parsed.success) {
     return {
@@ -92,6 +101,11 @@ export async function createTenantAction(
       selectedTier: parsed.data.selectedTier,
       polarCustomerReference: `dvx_${randomUUID()}`,
       retellAgentId: parsed.data.retellAgentId,
+      consentBasis: parsed.data.consentBasis,
+      // Prompt 8: outbound calling is NEVER enabled at creation — it requires
+      // the explicit compliance conversation, then the toggle on the manage
+      // page.
+      outboundCallingEnabled: false,
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -160,6 +174,129 @@ export async function setRetellAgentIdAction(
   }
 
   revalidatePath("/admin");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Prompt 8 — compliance controls (outbound opt-in, consent basis, suppression)
+// ---------------------------------------------------------------------------
+
+const complianceSchema = z.object({
+  tenantId: z.string().min(1).max(64),
+  outboundCallingEnabled: z.literal("on").nullable(),
+  consentBasis: z
+    .string()
+    .trim()
+    .max(2000)
+    .transform((v) => (v ? v : null)),
+});
+
+export async function updateComplianceAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdminAction();
+
+  const parsed = complianceSchema.safeParse({
+    tenantId: formData.get("tenantId"),
+    outboundCallingEnabled: formData.get("outboundCallingEnabled") ?? null,
+    consentBasis: formData.get("consentBasis") ?? "",
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid input." };
+  }
+
+  const enableOutbound = parsed.data.outboundCallingEnabled === "on";
+  // Guard rail: outbound cannot be switched on for a tenant with no recorded
+  // consent basis — the compliance conversation has to have happened first
+  // (docs/04 §3).
+  if (enableOutbound && !parsed.data.consentBasis) {
+    return {
+      ok: false,
+      error:
+        "Record the tenant's consent basis before enabling outbound calling.",
+    };
+  }
+
+  const updated = await db
+    .update(tenants)
+    .set({
+      outboundCallingEnabled: enableOutbound,
+      consentBasis: parsed.data.consentBasis,
+    })
+    .where(eq(tenants.id, parsed.data.tenantId))
+    .returning({ id: tenants.id });
+  if (updated.length === 0) {
+    return { ok: false, error: "Tenant not found." };
+  }
+
+  revalidatePath(`/admin/tenants/${parsed.data.tenantId}`);
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+const suppressNumberSchema = z.object({
+  tenantId: z.string().min(1).max(64),
+  phoneNumber: z.string().trim().min(7).max(32),
+});
+
+export async function addSuppressedNumberAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdminAction();
+
+  const parsed = suppressNumberSchema.safeParse({
+    tenantId: formData.get("tenantId"),
+    phoneNumber: formData.get("phoneNumber"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid phone number." };
+  }
+
+  const { normalizePhoneNumber } = await import("@/lib/phone");
+  const normalized = normalizePhoneNumber(parsed.data.phoneNumber);
+  if (!normalized) {
+    return {
+      ok: false,
+      error: "Couldn't parse that as a phone number — use digits with country code.",
+    };
+  }
+
+  const { suppressedNumbers } = await import("@/db");
+  await db
+    .insert(suppressedNumbers)
+    .values({ tenantId: parsed.data.tenantId, phoneNumber: normalized })
+    .onConflictDoNothing();
+
+  revalidatePath(`/admin/tenants/${parsed.data.tenantId}`);
+  return { ok: true };
+}
+
+export async function removeSuppressedNumberAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdminAction();
+
+  const id = z.string().min(1).max(64).safeParse(formData.get("id"));
+  const tenantId = z.string().min(1).max(64).safeParse(formData.get("tenantId"));
+  if (!id.success || !tenantId.success) {
+    return { ok: false, error: "Invalid entry." };
+  }
+
+  const { suppressedNumbers } = await import("@/db");
+  const { and } = await import("drizzle-orm");
+  await db
+    .delete(suppressedNumbers)
+    .where(
+      and(
+        eq(suppressedNumbers.id, id.data),
+        eq(suppressedNumbers.tenantId, tenantId.data),
+      ),
+    );
+
+  revalidatePath(`/admin/tenants/${tenantId.data}`);
   return { ok: true };
 }
 
