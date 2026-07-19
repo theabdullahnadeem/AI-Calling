@@ -11,6 +11,7 @@ import {
 import { serverEnv } from "@/lib/env";
 import { archiveCallRecording } from "@/lib/recording";
 import { redis } from "@/lib/redis";
+import { recordCallUsage } from "@/lib/usage";
 import {
   mapDirection,
   mapEndStatus,
@@ -221,8 +222,18 @@ export async function POST(req: Request): Promise<Response> {
           );
         }
 
-        // Prompt 6 hooks in here: ingest the Polar usage event and increment
-        // minutesUsedThisCycle.
+        // Prompt 6: minute accounting — Polar usage event + local counter,
+        // post-response. Claimed once per call, so call_analyzed re-running
+        // this is a no-op.
+        if (durationSeconds !== null && durationSeconds > 0) {
+          after(() =>
+            recordCallUsage({
+              tenant,
+              callId: call.call_id,
+              durationSeconds,
+            }),
+          );
+        }
         break;
       }
 
@@ -250,6 +261,19 @@ export async function POST(req: Request): Promise<Response> {
               transcript: call.transcript_object ?? null,
             },
           });
+
+        // Usage fallback: if call_ended was missed, this event also carries
+        // the final duration. The usage claim makes double-recording a no-op.
+        const analyzedDuration = resolveDurationSeconds(call);
+        if (analyzedDuration !== null && analyzedDuration > 0) {
+          after(() =>
+            recordCallUsage({
+              tenant,
+              callId: call.call_id,
+              durationSeconds: analyzedDuration,
+            }),
+          );
+        }
 
         // Belt-and-suspenders: if call_ended was missed (or arrived without
         // a recording_url), this event also carries it. The Redis claim in

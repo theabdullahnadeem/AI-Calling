@@ -24,8 +24,9 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const caller = appRouter.createCaller(await createTrpcContext());
 
-  const [me, overview, billing, initialCalls, bookings, liveCalls] =
-    await Promise.all([
+  let data;
+  try {
+    data = await Promise.all([
       caller.tenant.me(),
       caller.tenant.overview(),
       caller.tenant.billing(),
@@ -33,6 +34,47 @@ export default async function DashboardPage() {
       caller.tenant.bookingsList(),
       caller.tenant.liveCalls(),
     ]);
+  } catch (error) {
+    // Subscription-level suspension (Prompt 6, item 9): the specific error
+    // renders as "access revoked, contact support" — not a generic 403 and
+    // not a crash. Tenant-level suspension is handled earlier by the layout.
+    if (
+      error instanceof Error &&
+      error.message === "SUBSCRIPTION_SUSPENDED"
+    ) {
+      return (
+        <main
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ maxWidth: 440, textAlign: "center" }}>
+            <h1
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 22,
+                color: "var(--alert)",
+                marginBottom: 12,
+              }}
+            >
+              Dashboard access is paused
+            </h1>
+            <p style={{ fontSize: 14, color: "var(--slate)", lineHeight: 1.6 }}>
+              Access was revoked after an unresolved payment. Contact us at{" "}
+              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> to
+              restore your subscription — your call data is safe.
+            </p>
+          </div>
+        </main>
+      );
+    }
+    throw error;
+  }
+
+  const [me, overview, billing, initialCalls, bookings, liveCalls] = data;
 
   const intakeConfig = parseIntakeSchema(me.intakeSchema);
   const intakeColumns = intakeConfig.fields ?? [];
@@ -87,10 +129,12 @@ export default async function DashboardPage() {
                 : ""}
             </span>
             <span className="dv-banner-actions">
-              {/* Prompt 6 replaces this with the Polar customer portal link */}
               <a
                 className="dv-btn dv-btn--banner"
-                href={`mailto:${SUPPORT_EMAIL}?subject=Retry%20payment%20for%20${encodeURIComponent(me.name)}`}
+                href={
+                  billing.customerPortalUrl ??
+                  `mailto:${SUPPORT_EMAIL}?subject=Retry%20payment%20for%20${encodeURIComponent(me.name)}`
+                }
               >
                 Retry Payment
               </a>
