@@ -126,13 +126,19 @@ export default async function AdminHomePage() {
                   >
                     {formatDate(t.createdAt)}
                   </td>
-                  <td style={{ padding: "10px 12px" }}>
+                  <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
                     {t.status === "pending_payment" ? (
                       <SendLinkButton
                         tenantId={t.id}
                         alreadySent={t.paymentLinkSentAt !== null}
                       />
-                    ) : null}
+                    ) : null}{" "}
+                    <a
+                      href={`/admin/tenants/${t.id}`}
+                      style={{ color: "#1F6F5C", fontSize: 12 }}
+                    >
+                      Manage
+                    </a>
                   </td>
                 </tr>
               ))

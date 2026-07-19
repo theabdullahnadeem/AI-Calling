@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -117,6 +118,17 @@ export const tenants = pgTable(
     // panel once the agent is configured in Retell's dashboard (docs/02 §1).
     // Unique — one agent must never serve two tenants.
     retellAgentId: varchar("retell_agent_id", { length: 128 }),
+    // Prompt 8 item 1: outbound calling is explicit opt-in per tenant, never
+    // a default-on feature. Every code path that would place an outbound
+    // call MUST check this via checkOutboundCallAllowed and no-op if false.
+    outboundCallingEnabled: boolean("outbound_calling_enabled")
+      .notNull()
+      .default(false),
+    // Prompt 8 item 2: free-text record, captured at onboarding, of how this
+    // tenant states they obtain calling consent from their customers (e.g.
+    // "opt-in via booking form"). Not a compliance guarantee — a documented
+    // record that the question was asked.
+    consentBasis: text("consent_basis"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -153,6 +165,12 @@ export const calls = pgTable(
     transcript: jsonb("transcript"),
     summary: text("summary"),
     sentiment: callSentimentEnum("sentiment"),
+    // Prompt 8 item 4: per-CALL consent record (distinct from the tenant-
+    // level field) — why this specific outbound call was placed, e.g.
+    // "informational follow-up on existing booking". Set by the outbound
+    // trigger when one exists; null for inbound calls. This is the granular
+    // record that matters if a specific call is ever disputed.
+    consentBasis: text("consent_basis"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -377,6 +395,39 @@ export const users = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// suppressedNumbers — Prompt 8 item 3
+//
+// Per-tenant do-not-call list: numbers a tenant's customers have asked not
+// to be called, or that the tenant supplied directly. Checked (alongside the
+// National DNC Registry) before ANY outbound call is placed.
+// ---------------------------------------------------------------------------
+
+export const suppressedNumbers = pgTable(
+  "suppressed_numbers",
+  {
+    id: varchar("id", { length: 64 })
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    tenantId: varchar("tenant_id", { length: 64 })
+      .notNull()
+      .references(() => tenants.id),
+    // Stored normalized (digits with leading +) so lookups can't miss on
+    // formatting differences.
+    phoneNumber: varchar("phone_number", { length: 32 }).notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("suppressed_numbers_tenant_id_idx").on(t.tenantId),
+    uniqueIndex("suppressed_numbers_tenant_phone_idx").on(
+      t.tenantId,
+      t.phoneNumber,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Inferred TypeScript types
 // ---------------------------------------------------------------------------
 
@@ -392,3 +443,5 @@ export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type SuppressedNumber = typeof suppressedNumbers.$inferSelect;
+export type NewSuppressedNumber = typeof suppressedNumbers.$inferInsert;

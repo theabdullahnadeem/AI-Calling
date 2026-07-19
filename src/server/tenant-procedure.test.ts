@@ -18,6 +18,8 @@ function makeTenant(overrides: Partial<Tenant> = {}): Tenant {
     polarCustomerReference: "dvx_ref",
     paymentLinkSentAt: null,
     retellAgentId: null,
+    outboundCallingEnabled: false,
+    consentBasis: null,
     createdAt: new Date(),
     ...overrides,
   };

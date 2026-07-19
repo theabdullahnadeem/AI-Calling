@@ -29,6 +29,13 @@
       "when": 1784474004524,
       "tag": "0003_talented_tag",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784478966377,
+      "tag": "0004_young_bishop",
+      "breakpoints": true
     }
   ]
 }
