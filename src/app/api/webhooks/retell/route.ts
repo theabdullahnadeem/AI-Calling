@@ -76,7 +76,7 @@ export async function POST(req: Request): Promise<Response> {
 
   if (
     !signature ||
-    !Retell.verify(rawBody, serverEnv("RETELL_SIGNING_KEY"), signature)
+    !Retell.verify(rawBody, serverEnv("RETELL_API_KEY"), signature)
   ) {
     return new Response("Invalid signature", { status: 401 });
   }
