@@ -19,16 +19,6 @@ function resolvePeriod(sub: {
   return { start: new Date(now.getTime() - 30 * DAY_MS), end: now };
 }
 
-async function loadSubscription(tenantId: string) {
-  const { db, subscriptions } = await import("@/db");
-  const [sub] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.tenantId, tenantId))
-    .limit(1);
-  return sub ?? null;
-}
-
 const callFilterSchema = z
   .object({
     search: z.string().trim().max(100).optional(),
@@ -61,8 +51,7 @@ export const tenantRouter = router({
   /** Performance cards — this billing period. */
   overview: protectedTenantProcedure.query(async ({ ctx }) => {
     const { db, calls, bookings } = await import("@/db");
-    const sub = await loadSubscription(ctx.tenant.id);
-    const period = resolvePeriod(sub);
+    const period = resolvePeriod(ctx.subscription);
 
     const inPeriod = (column: typeof calls.createdAt) =>
       and(gte(column, period.start), lte(column, period.end));
@@ -109,7 +98,7 @@ export const tenantRouter = router({
 
   /** Billing status card + overdue banner state. */
   billing: protectedTenantProcedure.query(async ({ ctx }) => {
-    const sub = await loadSubscription(ctx.tenant.id);
+    const sub = ctx.subscription;
     if (!sub) {
       return { hasSubscription: false as const };
     }
@@ -117,6 +106,26 @@ export const tenantRouter = router({
       0,
       sub.minutesUsedThisCycle - sub.minuteCap,
     );
+
+    // Retry Payment goes to Polar's hosted customer portal (card update +
+    // retry live there — we never touch payment details). Session links are
+    // short-lived, so mint one per dashboard load, only when it's needed.
+    let customerPortalUrl: string | null = null;
+    if (sub.status === "payment_overdue" && sub.polarCustomerId) {
+      try {
+        const { polarClient } = await import("@/lib/polar");
+        const session = await polarClient().customerSessions.create({
+          customerId: sub.polarCustomerId,
+        });
+        customerPortalUrl = session.customerPortalUrl;
+      } catch (error) {
+        console.error(
+          "[dashboard] Polar customer session failed:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
     return {
       hasSubscription: true as const,
       tier: sub.tier,
@@ -128,11 +137,12 @@ export const tenantRouter = router({
       monthlyPriceUsd: sub.monthlyPriceUsd,
       currentPeriodEnd: sub.currentPeriodEnd.toISOString(),
       overdueSince: sub.overdueSince?.toISOString() ?? null,
-      // 3-day grace window countdown for the banner (Prompt 6 owns the
-      // actual suspension job).
+      // 3-day grace window countdown for the banner; the daily job (and the
+      // tRPC middleware, immediately) enforce the actual suspension.
       graceEndsAt: sub.overdueSince
         ? new Date(sub.overdueSince.getTime() + 3 * DAY_MS).toISOString()
         : null,
+      customerPortalUrl,
     };
   }),
 

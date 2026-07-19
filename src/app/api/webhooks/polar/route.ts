@@ -2,26 +2,17 @@ import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks"
 
 import { activateTenantFromPayment } from "@/lib/activation";
 import { serverEnv } from "@/lib/env";
+import {
+  extractPolarReference,
+  handleCancellation,
+  handleOrderPaid,
+  handlePastDue,
+  handleSubscriptionActive,
+  type PolarOrderPayload,
+  type PolarSubscriptionPayload,
+} from "@/lib/polar-sync";
 
 export const runtime = "nodejs";
-
-/**
- * Minimal structural view of the webhook payloads we act on. Polar's SDK
- * types the full payload, but we read defensively: a missing field degrades
- * to a null, never a crash — and event names were confirmed against Polar's
- * current docs (order.paid, subscription.active, subscription.past_due,
- * subscription.canceled, subscription.revoked).
- */
-type ActivationishPayload = {
-  metadata?: Record<string, unknown> | null;
-  customer?: { id?: string; externalId?: string | null } | null;
-  customerId?: string | null;
-  subscriptionId?: string | null;
-  subscription?: { id?: string } | null;
-  id?: string;
-  currentPeriodStart?: string | Date | null;
-  currentPeriodEnd?: string | Date | null;
-};
 
 function asDate(value: string | Date | null | undefined): Date | null {
   if (!value) return null;
@@ -29,20 +20,17 @@ function asDate(value: string | Date | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function extractReference(data: ActivationishPayload): string | null {
-  const fromMetadata = data.metadata?.["polarCustomerReference"];
-  if (typeof fromMetadata === "string" && fromMetadata.length > 0) {
-    return fromMetadata;
-  }
-  const fromExternalId = data.customer?.externalId;
-  return typeof fromExternalId === "string" && fromExternalId.length > 0
-    ? fromExternalId
-    : null;
-}
-
+/**
+ * Polar webhook receiver (Prompts 2.5 + 6). Event names confirmed against
+ * Polar's docs: order.paid, subscription.active, subscription.past_due,
+ * subscription.canceled, subscription.revoked. Signature (Standard Webhooks)
+ * is verified over the raw bytes before ANY processing.
+ *
+ * First payment for a tenant → the activation path in activation.ts (the
+ * ONLY code allowed to flip tenants.status to 'active'). Every later event
+ * is a cache sync in polar-sync.ts. Both are idempotent per delivery.
+ */
 export async function POST(req: Request): Promise<Response> {
-  // Raw body FIRST — the signature covers the exact bytes. Nothing is parsed
-  // or processed before verification succeeds.
   const body = await req.text();
 
   let event: { type: string; data: unknown };
@@ -60,46 +48,69 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   switch (event.type) {
-    case "order.paid":
+    case "order.paid": {
+      const order = event.data as PolarOrderPayload;
+      const reference = extractPolarReference(order);
+
+      // Try activation first — it no-ops ("already_active") for anything but
+      // a pending_payment tenant's first payment.
+      if (reference) {
+        const result = await activateTenantFromPayment({
+          polarCustomerReference: reference,
+          polarCustomerId: order.customer?.id ?? null,
+          polarSubscriptionId:
+            order.subscriptionId ?? order.subscription?.id ?? null,
+          currentPeriodStart: asDate(order.subscription?.currentPeriodStart),
+          currentPeriodEnd: asDate(order.subscription?.currentPeriodEnd),
+        });
+        if (result.outcome === "activated") {
+          // Log the first invoice too, then done.
+          await handleOrderPaid(order);
+          return Response.json({ received: true, outcome: "activated" });
+        }
+      }
+
+      // Renewal / already-active path: invoice + cycle reset.
+      await handleOrderPaid(order);
+      return Response.json({ received: true, outcome: "synced" });
+    }
+
     case "subscription.active": {
-      const data = event.data as ActivationishPayload;
-      const reference = extractReference(data);
+      const payload = event.data as PolarSubscriptionPayload;
+      const reference = extractPolarReference(payload);
 
-      if (!reference) {
-        // Signed, real Polar event, but not attributable to a tenant (e.g. a
-        // checkout created outside the admin panel). Log loudly, ack with 200
-        // — retrying can never make it matchable.
-        console.warn(
-          `[polar-webhook] ${event.type} carried no polarCustomerReference/externalId — ignored`,
-        );
-        return Response.json({ received: true, matched: false });
+      if (reference) {
+        const result = await activateTenantFromPayment({
+          polarCustomerReference: reference,
+          polarCustomerId: payload.customer?.id ?? null,
+          polarSubscriptionId: payload.id ?? null,
+          currentPeriodStart: asDate(payload.currentPeriodStart),
+          currentPeriodEnd: asDate(payload.currentPeriodEnd),
+        });
+        if (result.outcome === "activated") {
+          return Response.json({ received: true, outcome: "activated" });
+        }
       }
 
-      const subscriptionId =
-        event.type === "subscription.active"
-          ? (data.id ?? null)
-          : (data.subscriptionId ?? data.subscription?.id ?? null);
+      // Already active → id/period sync + past_due recovery.
+      await handleSubscriptionActive(payload);
+      return Response.json({ received: true, outcome: "synced" });
+    }
 
-      const result = await activateTenantFromPayment({
-        polarCustomerReference: reference,
-        polarCustomerId: data.customer?.id ?? data.customerId ?? null,
-        polarSubscriptionId: subscriptionId,
-        currentPeriodStart: asDate(data.currentPeriodStart),
-        currentPeriodEnd: asDate(data.currentPeriodEnd),
-      });
+    case "subscription.past_due": {
+      await handlePastDue(event.data as PolarSubscriptionPayload);
+      return Response.json({ received: true, outcome: "past_due" });
+    }
 
-      if (result.outcome === "tenant_not_found") {
-        console.warn(
-          `[polar-webhook] ${event.type} reference "${reference}" matched no tenant`,
-        );
-      }
-
-      return Response.json({ received: true, outcome: result.outcome });
+    case "subscription.canceled":
+    case "subscription.revoked": {
+      await handleCancellation(event.data as PolarSubscriptionPayload);
+      return Response.json({ received: true, outcome: "cancelled" });
     }
 
     default:
-      // subscription.past_due / canceled / revoked, renewal orders, etc. are
-      // Prompt 6's scope — acknowledge so Polar doesn't retry them forever.
+      // Signed, real, just not one we act on (subscription.updated,
+      // order.created, …). Ack so Polar doesn't retry.
       return Response.json({ received: true, handled: false });
   }
 }

@@ -48,9 +48,43 @@ export const protectedTenantProcedure = t.procedure.use(
       throw new TRPCError({ code: "UNAUTHORIZED" });
     }
 
-    // Prompt 6 extends this middleware with subscriptions.status handling
-    // (payment_overdue grace-window banner flag).
+    // Prompt 6, item 9: subscription-state gating. 'suspended' (and
+    // 'cancelled' — a revoked subscription means no service) block data
+    // access with the specific error the frontend renders as "access
+    // revoked, contact support". 'payment_overdue' inside the 3-day grace
+    // window allows access but flags it so the UI shows the warning banner;
+    // past the window it blocks immediately — no waiting for the daily job.
+    const subscription = await ctx.loadSubscriptionByTenantId(user.tenantId);
+    if (subscription) {
+      if (
+        subscription.status === "suspended" ||
+        subscription.status === "cancelled"
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "SUBSCRIPTION_SUSPENDED",
+        });
+      }
+      if (
+        subscription.status === "payment_overdue" &&
+        subscription.overdueSince &&
+        Date.now() - subscription.overdueSince.getTime() >
+          3 * 24 * 60 * 60 * 1000
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "SUBSCRIPTION_SUSPENDED",
+        });
+      }
+    }
 
-    return next({ ctx: { ...ctx, tenant } });
+    return next({
+      ctx: {
+        ...ctx,
+        tenant,
+        subscription: subscription ?? null,
+        billingWarning: subscription?.status === "payment_overdue",
+      },
+    });
   },
 );

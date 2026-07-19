@@ -32,6 +32,13 @@ async function main() {
       destination: `${appUrl}/api/jobs/email-retry`,
       cron: "*/15 * * * *",
     },
+    {
+      // Daily 3-day-grace-window check (Prompt 6): suspends tenants whose
+      // payment has been overdue for more than 3 days.
+      scheduleId: "digivixo-billing-suspend",
+      destination: `${appUrl}/api/jobs/billing-suspend`,
+      cron: "0 3 * * *",
+    },
   ];
 
   for (const schedule of schedules) {
