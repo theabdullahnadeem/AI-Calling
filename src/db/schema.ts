@@ -203,6 +203,10 @@ export const bookings = pgTable(
     emailSentStatus: emailSentStatusEnum("email_sent_status")
       .notNull()
       .default("pending"),
+    // SPEC ADDITION (flagged in PR): the retry worker gives up permanently
+    // after 3 retries — that count has to live somewhere durable, not in a
+    // cache. 0 = never attempted; initial send + 3 retries = 4 max.
+    emailAttempts: integer("email_attempts").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -1,0 +1,1 @@
+ALTER TABLE "bookings" ADD COLUMN "email_attempts" integer DEFAULT 0 NOT NULL;

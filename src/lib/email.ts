@@ -47,6 +47,75 @@ export async function sendSetPasswordEmail(params: {
   });
 }
 
+function intakeRows(
+  summary: Array<{ label: string; value: string }>,
+): string {
+  if (summary.length === 0) return "";
+  const rows = summary
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding: 6px 12px 6px 0; color: #5B6472; font-size: 13px; vertical-align: top; white-space: nowrap;">${escapeHtml(item.label)}</td>
+          <td style="padding: 6px 0; color: #161B22; font-size: 13px;">${escapeHtml(item.value)}</td>
+        </tr>`,
+    )
+    .join("");
+  return `<table style="border-collapse: collapse; margin: 16px 0;">${rows}</table>`;
+}
+
+/** Confirmation to the caller — only sent when a customer email was captured. */
+export async function sendBookingCustomerEmail(params: {
+  to: string;
+  tenantName: string;
+  customerName: string | null;
+  intakeSummary: Array<{ label: string; value: string }>;
+}): Promise<void> {
+  const greeting = params.customerName
+    ? `Hi ${escapeHtml(params.customerName)},`
+    : "Hi,";
+  await resendClient().emails.send({
+    from: serverEnv("EMAIL_FROM"),
+    to: params.to,
+    subject: `Your booking with ${escapeHtml(params.tenantName)} is confirmed`,
+    html: wrapper(`
+      <h2 style="font-size: 20px; margin: 0 0 16px;">Booking confirmed</h2>
+      <p>${greeting}</p>
+      <p>Thanks for calling <strong>${escapeHtml(params.tenantName)}</strong> — here's what we captured:</p>
+      ${intakeRows(params.intakeSummary)}
+      <p style="font-size: 13px; color: #5B6472;">If anything looks off, just call back and we'll fix it.</p>
+    `),
+  });
+}
+
+/** Notification to the business owner — sent for every detected booking. */
+export async function sendBookingOwnerEmail(params: {
+  to: string;
+  tenantName: string;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  intakeSummary: Array<{ label: string; value: string }>;
+}): Promise<void> {
+  const contact = [
+    params.customerName && `Name: ${escapeHtml(params.customerName)}`,
+    params.customerPhone && `Phone: ${escapeHtml(params.customerPhone)}`,
+    params.customerEmail && `Email: ${escapeHtml(params.customerEmail)}`,
+  ]
+    .filter(Boolean)
+    .join("<br/>");
+  await resendClient().emails.send({
+    from: serverEnv("EMAIL_FROM"),
+    to: params.to,
+    subject: `New booking captured — ${escapeHtml(params.tenantName)}`,
+    html: wrapper(`
+      <h2 style="font-size: 20px; margin: 0 0 16px;">New booking from a call</h2>
+      ${contact ? `<p>${contact}</p>` : "<p>The caller left no contact details.</p>"}
+      ${intakeRows(params.intakeSummary)}
+      <p style="font-size: 13px; color: #5B6472;">Full call details are on your dashboard.</p>
+    `),
+  });
+}
+
 export async function sendPaymentLinkEmail(params: {
   to: string;
   tenantName: string;
