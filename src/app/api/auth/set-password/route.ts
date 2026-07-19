@@ -21,7 +21,7 @@ const GENERIC_ERROR =
 export async function POST(req: Request): Promise<Response> {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const limit = setPasswordRateLimit(ip);
+  const limit = await setPasswordRateLimit(ip);
   if (!limit.allowed) {
     return Response.json(
       { error: "Too many attempts. Try again later." },

@@ -17,6 +17,7 @@ function makeTenant(overrides: Partial<Tenant> = {}): Tenant {
     selectedTier: "standard",
     polarCustomerReference: "dvx_ref",
     paymentLinkSentAt: null,
+    retellAgentId: null,
     createdAt: new Date(),
     ...overrides,
   };
