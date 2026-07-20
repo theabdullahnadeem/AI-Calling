@@ -3,7 +3,7 @@ import "server-only";
 import { Polar } from "@polar-sh/sdk";
 
 import type { Tenant } from "@/db/schema";
-import { serverEnv } from "./env";
+import { appUrl, serverEnv } from "./env";
 
 export function polarClient(): Polar {
   return new Polar({
@@ -22,6 +22,16 @@ const TIER_PRODUCT_ENV = {
 } as const;
 
 /**
+ * Thrown for misconfiguration the admin can actually fix (as opposed to a
+ * transient API failure). The admin panel surfaces the message verbatim, so
+ * keep these worded as instructions.
+ */
+export class PolarConfigError extends Error {}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
  * Creates a Polar hosted-checkout session for the tenant's selected tier.
  *
  * polarCustomerReference travels on BOTH channels Polar echoes back in
@@ -37,14 +47,25 @@ export async function createCheckoutForTenant(tenant: Tenant): Promise<string> {
     throw new Error(`Tenant ${tenant.id} has no polarCustomerReference`);
   }
 
+  // Catch the classic "the .env.example placeholder is still in there" case
+  // before calling Polar, so the admin sees what to fix instead of a 422
+  // buried in the server logs.
+  const productEnvKey = TIER_PRODUCT_ENV[tenant.selectedTier];
+  const productId = serverEnv(productEnvKey);
+  if (!UUID_PATTERN.test(productId)) {
+    throw new PolarConfigError(
+      `${productEnvKey} is not a Polar product ID (currently "${productId}"). Copy the product's UUID from the Polar dashboard into this environment variable, then redeploy.`,
+    );
+  }
+
   const checkout = await polarClient().checkouts.create({
-    products: [serverEnv(TIER_PRODUCT_ENV[tenant.selectedTier])],
+    products: [productId],
     customerEmail: tenant.ownerEmail,
     externalCustomerId: tenant.polarCustomerReference,
     metadata: {
       polarCustomerReference: tenant.polarCustomerReference,
     },
-    successUrl: `${serverEnv("APP_URL")}/checkout/success`,
+    successUrl: `${appUrl()}/checkout/success`,
   });
 
   return checkout.url;

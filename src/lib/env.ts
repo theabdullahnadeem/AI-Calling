@@ -45,3 +45,13 @@ export function serverEnv(key: RequiredKey): string {
   }
   return value;
 }
+
+/**
+ * APP_URL with any trailing slash stripped. ALWAYS use this instead of
+ * serverEnv("APP_URL") when building a URL by appending a path — a value
+ * entered as "https://example.com/" would otherwise produce "//set-password",
+ * which 404s and would silently break every set-password login link.
+ */
+export function appUrl(): string {
+  return serverEnv("APP_URL").replace(/\/+$/, "");
+}

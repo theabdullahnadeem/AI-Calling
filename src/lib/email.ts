@@ -2,7 +2,7 @@ import "server-only";
 
 import { Resend } from "resend";
 
-import { serverEnv } from "./env";
+import { appUrl, serverEnv } from "./env";
 
 function resendClient(): Resend {
   return new Resend(serverEnv("RESEND_API_KEY"));
@@ -31,7 +31,7 @@ export async function sendSetPasswordEmail(params: {
   rawToken: string;
 }): Promise<void> {
   // Raw token only ever exists in this link — never logged, never stored.
-  const link = `${serverEnv("APP_URL")}/set-password?token=${params.rawToken}`;
+  const link = `${appUrl()}/set-password?token=${params.rawToken}`;
   await resendClient().emails.send({
     from: serverEnv("EMAIL_FROM"),
     to: params.to,
