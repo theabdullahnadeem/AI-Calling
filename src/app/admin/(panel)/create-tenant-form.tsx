@@ -64,9 +64,9 @@ export function CreateTenantForm() {
         <label>
           Tier
           <select name="selectedTier" required style={inputStyle}>
-            <option value="pilot">Pilot — $800/mo</option>
-            <option value="standard">Standard — $1,500/mo</option>
-            <option value="pro">Pro — $2,200/mo</option>
+            <option value="pilot">Pilot — $1,000/mo · 3,000 min</option>
+            <option value="standard">Standard — $1,700/mo · 5,600 min</option>
+            <option value="pro">Pro — $2,500/mo · 8,150 min</option>
           </select>
         </label>
         <label>

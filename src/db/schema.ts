@@ -255,14 +255,14 @@ export const subscriptions = pgTable(
       .notNull()
       .references(() => tenants.id),
     tier: subscriptionTierEnum("tier").notNull(),
-    // 800.00 / 1500.00 / 2200.00
+    // 1000.00 / 1700.00 / 2500.00 — see src/lib/pricing.ts (source of truth)
     monthlyPriceUsd: numeric("monthly_price_usd", {
       precision: 10,
       scale: 2,
     }).notNull(),
-    // 2940 / 5514 / 8088 — 40% net margin floor after Retell's $0.155/min AND
-    // Polar's 5% + $0.50 fee (see product overview). Derived numbers, not
-    // constants: recalculate if either rate changes.
+    // 3000 / 5600 / 8150 — clears the 40% net margin floor after Retell's
+    // $0.155/min cost AND Polar's 5% + $0.50 fee. Derived numbers, not
+    // constants: recalculate if either rate changes (see src/lib/pricing.ts).
     minuteCap: integer("minute_cap").notNull(),
     // The rate configured on Polar's metered price for the call_minutes meter
     // — Polar bills overage automatically once the meter crosses the included
