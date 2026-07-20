@@ -337,6 +337,11 @@ export async function sendPaymentLinkAction(
     checkoutUrl = await createCheckoutForTenant(tenant);
   } catch (error) {
     console.error("[admin] Polar checkout creation failed:", error);
+    const { PolarConfigError } = await import("@/lib/polar");
+    if (error instanceof PolarConfigError) {
+      // Actionable misconfiguration — show the admin exactly what to fix.
+      return { ok: false, error: error.message };
+    }
     return { ok: false, error: "Polar checkout creation failed — see logs." };
   }
 
