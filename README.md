@@ -77,79 +77,150 @@ npm run test          # 55 tests should pass
 5. Deploy. Check `https://yourdomain.com/login` renders and
    `https://yourdomain.com/admin/login` accepts your seeded admin.
 
+> Deployed before adding the env vars? The build fails at "Collecting page
+> data" with a `DATABASE_URL environment variable is not set` error. That's
+> expected — add the vars, then hit **Redeploy**. Nothing is broken.
+
 ### Step 5 — Point the webhooks at your deployment
 
-Both webhooks reject unsigned requests, so nothing works until the URLs AND
-secrets/keys line up.
+A webhook is just a URL where another service sends your app news — Retell
+tells it "a call happened", Polar tells it "a payment happened". You paste
+one URL into each dashboard. Use your real deployed domain everywhere below
+(the same value as `APP_URL`).
 
-**a. Retell** — Retell dashboard → **Webhooks** (account-level settings):
+**a. Retell — one URL, nothing else**
 
-```
-https://yourdomain.com/api/webhooks/retell
-```
+1. Retell dashboard → **Settings → Webhooks**.
+2. Paste:
+   ```
+   https://yourdomain.com/api/webhooks/retell
+   ```
+3. Save. Done — there's no secret to copy. Retell signs its messages with
+   your API key, which the app already has as `RETELL_API_KEY`.
 
-That's it — deliveries are signed with your `RETELL_API_KEY` automatically.
-(You can also set the webhook per-agent; same URL either way.)
+**b. Polar — one URL plus one secret**
 
-**b. Polar** — Polar dashboard → **Settings → Webhooks → Add endpoint**:
+1. Polar dashboard → **Settings → Webhooks → Add endpoint**.
+2. Paste:
+   ```
+   https://yourdomain.com/api/webhooks/polar
+   ```
+3. Payload format: **Raw**.
+4. Events: tick `order.paid`, `subscription.active`,
+   `subscription.past_due`, `subscription.canceled`,
+   `subscription.revoked`. (Can't find the list, or unsure? Sending *all*
+   events is also fine — the app safely ignores ones it doesn't use.)
+5. After saving, Polar shows a **signing secret**. Copy it → Vercel →
+   Environment Variables → `POLAR_WEBHOOK_SECRET` → **Redeploy**. Without
+   it, the app rejects everything Polar sends.
 
-```
-https://yourdomain.com/api/webhooks/polar
-```
+**c. QStash — a command, not a dashboard**
 
-- Format: **Raw**
-- Events to enable: `order.paid`, `subscription.active`,
-  `subscription.past_due`, `subscription.canceled`, `subscription.revoked`
-  (anything extra is acknowledged and ignored)
-- Copy the **signing secret** it shows you → paste into
-  `POLAR_WEBHOOK_SECRET` in Vercel env vars → **redeploy**.
-
-**c. QStash** (scheduled jobs — not pasted in any dashboard; registered by
-script). From your machine, with `.env` now containing the deployed
-`APP_URL`:
+The scheduled jobs (email retries, billing suspension) aren't configured in
+any web UI. With your `.env` containing the deployed `APP_URL`, run:
 
 ```bash
 npm run qstash:setup
 ```
 
-Registers two schedules against your domain: booking-email retries every
-15 minutes and the daily billing-suspension check. Re-run any time; it
-overwrites rather than duplicates.
+When you see two "Scheduled …" lines, it worked — you can confirm under
+Upstash → QStash → Schedules. Re-running is safe; it updates rather than
+duplicates.
 
-### Step 6 — Polar products, meter, and credits (one-time)
+### Step 6 — Set up billing in Polar (one-time, ~15 minutes)
 
-In the Polar dashboard (full detail in [OPERATIONS.md §4](OPERATIONS.md)):
+**What you're building**: three subscription plans. Each plan includes a
+bundle of free minutes; minutes beyond that cost $0.27 each. Polar does all
+the counting and charging by itself — the app just reports each call's
+minutes. Three Polar concepts make that work:
 
-1. **Meter first**: Products → Meters → create `call_minutes`, aggregation
-   **Sum** over metadata property `minutes`, filtered to event name
-   `call_minutes`. The name must match exactly — the app sends usage events
-   with it.
-2. **Three products** (recurring, monthly): Pilot $800, Standard $1,500,
-   Pro $2,200. On each: add a **metered price** on the `call_minutes` meter
-   at **$0.27/unit**, and a **Meter Credits benefit** granting the included
-   minutes per cycle — 2,940 / 5,514 / 8,088 respectively. Credits absorb
-   usage first; the metered price bills only the overage. The app never
-   calculates overage itself.
-3. Copy each product's ID into `POLAR_PRODUCT_ID_PILOT` / `_STANDARD` /
-   `_PRO` in Vercel → redeploy.
-4. Create a **100%-off discount code** (e.g. `GOLIVE-TEST`, limited
-   redemptions) — used in Step 8 so your test checkout charges nothing.
+| Polar term | Plain meaning |
+|---|---|
+| **Meter** | A per-customer counter. The app reports "this call used 3 minutes"; Polar adds it up. |
+| **Meter credits** (a benefit) | The plan's free minutes, refilled at the start of every billing month. |
+| **Metered price** | The $0.27/minute charge that only starts once the free minutes are used up. |
 
-### Step 7 — Retell agent per tenant
+**6.1 — Create the meter** (once, before the products)
 
-For each client (and your Step 8 test tenant):
+1. Polar dashboard → **Products → Meters → Create Meter**.
+2. Name it exactly `call_minutes` — the app sends usage under this name.
+3. Filter: event name **equals** `call_minutes`.
+4. Aggregation: **Sum**, over the property **`minutes`**.
+5. Save.
 
-1. Create the tenant in `/admin` (business name, owner email, type, tier,
-   intake schema — the JSON template in the form is documented in
-   [OPERATIONS.md §6](OPERATIONS.md)).
-2. In Retell: register their number, configure the agent, and in
-   **post-call analysis** define fields matching that tenant's intake schema
-   — the booking-intent boolean (e.g. `is_booking_confirmed`), each
-   `fields[].key`, plus `customer_name` / `customer_email` /
-   `customer_phone`.
-3. Copy the **agent ID** into the tenant's row in `/admin` ("Retell agent"
-   column). Unmapped agents' calls go to the dead-letter list, not the
-   dashboard.
+**6.2 — Create the Pilot product** (walkthrough; then repeat twice)
+
+1. **Products → Create Product**. Name: `Pilot`. Billing: **Monthly
+   subscription**, price **$800**.
+2. On the same product, add a **second, metered price**: pick the
+   `call_minutes` meter, set **$0.27 per unit**.
+3. In the product's **Benefits** section: **Add benefit → Meter Credits** →
+   meter `call_minutes` → **2,940 units**, granted **every billing cycle**.
+4. Save, open the product, copy its **product ID**. That's
+   `POLAR_PRODUCT_ID_PILOT`.
+
+**6.3 — Repeat for Standard and Pro** — everything identical except:
+
+| Product | Monthly price | Free minutes (credits) | ID goes into |
+|---|---|---|---|
+| Pilot | $800 | 2,940 | `POLAR_PRODUCT_ID_PILOT` |
+| Standard | $1,500 | 5,514 | `POLAR_PRODUCT_ID_STANDARD` |
+| Pro | $2,200 | 8,088 | `POLAR_PRODUCT_ID_PRO` |
+
+**6.4 —** Put the three IDs into Vercel env vars → **Redeploy**.
+
+**6.5 — Create a free test coupon**: **Products → Discounts → Create** →
+**100% off**, code `GOLIVE-TEST`, limit redemptions. Step 8 uses it so your
+test checkout charges $0.
+
+*(Polar occasionally renames buttons — if a label differs, look for the
+concept: one meter, three products, each with a fixed price + a metered
+price + a credits benefit.)*
+
+### Step 7 — Connect a client's AI agent (Retell)
+
+**How the pieces fit**: every client gets **one agent** in Retell. Two
+things link that agent to the client's dashboard:
+
+1. The **agent ID** pasted into `/admin` — this is how the app knows *whose*
+   call each webhook belongs to.
+2. The agent's **post-call analysis fields** — after each call, the agent
+   fills in a little answer sheet ("did they book?", "party size?"). The
+   app reads those answers to create bookings, so **the field names in
+   Retell must exactly match the names in that tenant's intake schema**
+   (the JSON you pasted in the admin create form).
+
+Step by step, per client:
+
+**7.1** Create the tenant in `/admin` (name, owner email, type, tier,
+intake schema).
+
+**7.2** In Retell: create the agent, write its prompt, pick a voice, attach
+their phone number — your normal managed-service work.
+
+**7.3** In the agent's settings, open **Post-Call Analysis** and add one
+field per answer you want captured. For the default restaurant-style intake
+schema, that's:
+
+| Field name in Retell | Type | What the AI fills in |
+|---|---|---|
+| `is_booking_confirmed` | Boolean | Did the caller actually book? |
+| `party_size` | Number | How many people |
+| `order_items` | Text | What they ordered |
+| `preferred_time` | Text | When they want it |
+| `customer_name` | Text | Caller's name |
+| `customer_email` | Text | Caller's email, if they gave one |
+| `customer_phone` | Text | Caller's number |
+
+The first four names come from **your intake schema** — `bookingIntentField`
+plus each `fields[].key`, spelled identically. The last three
+(`customer_*`) are standard: always add them, for every client.
+
+**7.4** On the agent's page, copy its ID (looks like `agent_…`) → `/admin`
+→ that tenant's row → paste into the **Retell agent** box → Save.
+
+Until 7.4 is done, that client's calls don't reach their dashboard — they
+sit in a recovery queue (`webhook:deadletter`), not lost, but invisible.
 
 ### Step 8 — Prove the whole loop (go-live test)
 

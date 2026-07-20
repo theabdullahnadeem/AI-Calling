@@ -47,11 +47,12 @@ async function main() {
       `Scheduled ${schedule.scheduleId}: ${schedule.cron} → ${schedule.destination}`,
     );
   }
-
-  process.exit(0);
 }
 
+// No process.exit() here: forcing exit while fetch's keep-alive sockets are
+// still closing triggers a libuv assertion crash on Windows (async.c:94).
+// Letting the event loop drain exits cleanly a few seconds later.
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
+  process.exitCode = 1;
 });
