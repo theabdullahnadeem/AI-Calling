@@ -151,7 +151,7 @@ minutes. Three Polar concepts make that work:
 **6.2 — Create the Pilot product** (walkthrough; then repeat twice)
 
 1. **Products → Create Product**. Name: `Pilot`. Billing: **Monthly
-   subscription**, price **$800**.
+   subscription**, price **$1,000**.
 2. On the same product, add a **second, metered price**: pick the
    `call_minutes` meter, set **$0.27 per unit**.
 3. In the product's **Benefits** section: **Add benefit → Meter Credits** →
@@ -163,9 +163,9 @@ minutes. Three Polar concepts make that work:
 
 | Product | Monthly price | Free minutes (credits) | ID goes into |
 |---|---|---|---|
-| Pilot | $800 | 2,940 | `POLAR_PRODUCT_ID_PILOT` |
-| Standard | $1,500 | 5,514 | `POLAR_PRODUCT_ID_STANDARD` |
-| Pro | $2,200 | 8,088 | `POLAR_PRODUCT_ID_PRO` |
+| Pilot | $1,000 | 3,000 | `POLAR_PRODUCT_ID_PILOT` |
+| Standard | $1,700 | 5,600 | `POLAR_PRODUCT_ID_STANDARD` |
+| Pro | $2,500 | 8,150 | `POLAR_PRODUCT_ID_PRO` |
 
 **6.4 —** Put the three IDs into Vercel env vars → **Redeploy**.
 
@@ -193,7 +193,42 @@ things link that agent to the client's dashboard:
 Step by step, per client:
 
 **7.1** Create the tenant in `/admin` (name, owner email, type, tier,
-intake schema).
+intake schema — see the box below if "intake schema" means nothing to you).
+
+> **What is the "intake schema"?**
+>
+> The other form fields describe **the business** (who they are, what they
+> pay you). The intake schema describes **what the AI should write down
+> during their calls** — and it becomes the columns on that client's booking
+> table.
+>
+> Different businesses need different notes. A restaurant needs *party size*
+> and *order items*. A CPA firm needs *service requested* and *urgency*.
+> Same software, different clipboard — the intake schema is that clipboard.
+>
+> **Yes, you still fill it in** — but it comes **pre-filled** with a working
+> restaurant example, so for a restaurant you can leave it as-is. For any
+> other business, edit the `fields` list:
+>
+> ```json
+> {
+>   "bookingIntentField": "is_booking_confirmed",
+>   "fields": [
+>     { "key": "service_requested", "label": "Service requested", "type": "text" },
+>     { "key": "urgency",           "label": "Urgency",           "type": "text" }
+>   ]
+> }
+> ```
+>
+> - `bookingIntentField` — the yes/no question "did they actually book?".
+>   Leave the name as-is unless you have a reason to change it.
+> - `fields` — one line per thing to capture. `key` is the internal name,
+>   `label` is the column heading the client sees on their dashboard.
+>
+> **The one rule that matters:** every `key` here must be spelled *exactly*
+> the same as the matching field you create in Retell (step 7.3). That
+> spelling is the wire between the AI's notes and the client's dashboard —
+> a typo means the column shows up empty.
 
 **7.2** In Retell: create the agent, write its prompt, pick a voice, attach
 their phone number — your normal managed-service work.

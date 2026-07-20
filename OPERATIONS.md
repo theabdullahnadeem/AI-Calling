@@ -70,16 +70,20 @@ personal reminder to trigger them; Polar never auto-sweeps your balance.
 
 **b. Meter** — Products → Meters → Create:
 - Name: `call_minutes` (must match exactly — the code sends events with this name)
-- Aggregation: **Sum** over metadata property `minutes`
+call_minutes- Aggregation: **Sum** over metadata property `minutes`
 - Filter: event name equals `call_minutes`
 
 **c. Three products** — Products → New (recurring, monthly):
 
 | Product | Price | Included minutes (credits) |
 |---|---|---|
-| Pilot | $800/mo | 2,940 |
-| Standard | $1,500/mo | 5,514 |
-| Pro | $2,200/mo | 8,088 |
+| Pilot | $1,000/mo | 3,000 |
+| Standard | $1,700/mo | 5,600 |
+| Pro | $2,500/mo | 8,150 |
+
+> These supersede the older tiers still written in `/docs` (the original
+> spec, deliberately left unedited). `src/lib/pricing.ts` is the live source
+> of truth and matches the table above.
 
 For **each** product:
 1. Fixed recurring price: the monthly amount above.
