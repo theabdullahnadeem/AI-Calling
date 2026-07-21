@@ -77,10 +77,32 @@ async function deadletter(entry: {
 }
 
 /**
+ * Candidate signing keys. RETELL_API_KEY accepts a COMMA-SEPARATED list
+ * because Retell signs webhooks with one specific key, and an account with
+ * several keys gives no indication which — trying them one per redeploy is a
+ * miserable loop. Listing them all means the webhook works if any matches.
+ * This also makes key rotation zero-downtime: add the new key, rotate, then
+ * drop the old one. Whitespace is trimmed so a stray space or newline pasted
+ * into the dashboard can't silently break every delivery.
+ */
+function retellSigningKeys(): string[] {
+  return serverEnv("RETELL_API_KEY")
+    .split(",")
+    .map((key) => key.trim())
+    .filter(Boolean);
+}
+
+function signatureIsValid(rawBody: string, signature: string): boolean {
+  return retellSigningKeys().some((key) =>
+    Retell.verify(rawBody, key, signature),
+  );
+}
+
+/**
  * Names the reason a signature was rejected, so a 401 is actionable rather
  * than a mystery. Retell's header is `v=<unix-ms>,d=<hmac-sha256-hex>` over
  * `body + timestamp`, with a 5-minute freshness window. Logs no secrets and
- * no digests — only which of the three failure modes occurred.
+ * no digests — only which of the failure modes occurred.
  */
 function explainSignatureFailure(signature: string | null): string {
   if (!signature) {
@@ -94,10 +116,12 @@ function explainSignatureFailure(signature: string | null): string {
   if (ageSeconds > 300) {
     return `signature timestamp is ${ageSeconds}s old (tolerance 300s) — server clock skew, or a very delayed retry`;
   }
+  const keyCount = retellSigningKeys().length;
   return (
-    `digest mismatch with timestamp only ${ageSeconds}s old, so this is NOT clock skew — ` +
-    "RETELL_API_KEY does not match the key Retell signs with. If your Retell account has " +
-    "more than one API key, try each: the one that works is the signing key."
+    `digest mismatch with a timestamp only ${ageSeconds}s old, so this is NOT clock skew — ` +
+    `none of the ${keyCount} key(s) in RETELL_API_KEY is the key Retell signs with. ` +
+    "Copy every key from Retell > API Keys into RETELL_API_KEY as a comma-separated " +
+    "list and redeploy; verification succeeds if any one of them matches."
   );
 }
 
@@ -107,10 +131,7 @@ export async function POST(req: Request): Promise<Response> {
   const rawBody = await req.text();
   const signature = req.headers.get("x-retell-signature");
 
-  if (
-    !signature ||
-    !Retell.verify(rawBody, serverEnv("RETELL_API_KEY"), signature)
-  ) {
+  if (!signature || !signatureIsValid(rawBody, signature)) {
     // A bare 401 leaves no trace anywhere — no idempotency key, no row, no
     // dead-letter entry — which makes "Retell isn't sending" and "we're
     // rejecting it" look identical from our side. Say which, without ever
