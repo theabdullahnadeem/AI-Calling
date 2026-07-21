@@ -39,13 +39,10 @@ export async function recordCallUsage(params: {
     // Exactly once per call: call_ended AND call_analyzed both carry a final
     // duration, and Retell retries redeliver events. 7-day TTL outlives any
     // realistic redelivery window.
-    const claimed = await redis().set(
-      `usage:claim:${callId}`,
-      "1",
-      "EX",
-      7 * 24 * 60 * 60,
-      "NX",
-    );
+    const claimed = await redis().set(`usage:claim:${callId}`, "1", {
+      ex: 7 * 24 * 60 * 60,
+      nx: true,
+    });
     if (claimed === null) return;
 
     const [sub] = await db
@@ -91,16 +88,13 @@ export async function recordCallUsage(params: {
         `[usage] Polar ingestion failed for call ${callId}:`,
         error instanceof Error ? error.message : error,
       );
-      await redis().lpush(
-        "usage:deadletter",
-        JSON.stringify({
-          tenantId: tenant.id,
-          callId,
-          minutes,
-          polarCustomerId: sub.polarCustomerId,
-          failedAt: new Date().toISOString(),
-        }),
-      );
+      await redis().lpush("usage:deadletter", {
+        tenantId: tenant.id,
+        callId,
+        minutes,
+        polarCustomerId: sub.polarCustomerId,
+        failedAt: new Date().toISOString(),
+      });
     }
   } catch (error) {
     console.error(

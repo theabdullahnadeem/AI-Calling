@@ -65,10 +65,10 @@ async function deadletter(entry: {
   rawBody: string;
 }): Promise<void> {
   try {
-    await redis().lpush(
-      "webhook:deadletter",
-      JSON.stringify({ ...entry, receivedAt: new Date().toISOString() }),
-    );
+    await redis().lpush("webhook:deadletter", {
+      ...entry,
+      receivedAt: new Date().toISOString(),
+    });
   } catch (redisError) {
     // Last resort: the log line itself is the record.
     console.error("[retell-webhook] deadletter write failed:", redisError);
@@ -109,13 +109,10 @@ export async function POST(req: Request): Promise<Response> {
   const idempotencyKey = `webhook:${call.call_id}:${event}`;
   let claimed: string | null;
   try {
-    claimed = await redis().set(
-      idempotencyKey,
-      "1",
-      "EX",
-      IDEMPOTENCY_TTL_SECONDS,
-      "NX",
-    );
+    claimed = await redis().set(idempotencyKey, "1", {
+      ex: IDEMPOTENCY_TTL_SECONDS,
+      nx: true,
+    });
   } catch (error) {
     // Without Redis there is no idempotency guarantee, and proceeding anyway
     // risks duplicate booking emails and double-counted billable minutes. 503
@@ -181,15 +178,14 @@ export async function POST(req: Request): Promise<Response> {
         // key, not Postgres.
         await redis().set(
           `call:${tenant.id}:${call.call_id}`,
-          JSON.stringify({
+          {
             callId: call.call_id,
             status,
             direction: mapDirection(call.direction),
             phoneNumber: resolveCustomerPhone(call),
             startedAt: call.start_timestamp ?? Date.now(),
-          }),
-          "EX",
-          LIVE_CALL_TTL_SECONDS,
+          },
+          { ex: LIVE_CALL_TTL_SECONDS },
         );
         break;
       }
