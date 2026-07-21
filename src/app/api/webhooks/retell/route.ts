@@ -76,6 +76,31 @@ async function deadletter(entry: {
   }
 }
 
+/**
+ * Names the reason a signature was rejected, so a 401 is actionable rather
+ * than a mystery. Retell's header is `v=<unix-ms>,d=<hmac-sha256-hex>` over
+ * `body + timestamp`, with a 5-minute freshness window. Logs no secrets and
+ * no digests — only which of the three failure modes occurred.
+ */
+function explainSignatureFailure(signature: string | null): string {
+  if (!signature) {
+    return "no x-retell-signature header on the request";
+  }
+  const match = /v=(\d+),d=(.*)/.exec(signature);
+  if (!match) {
+    return "x-retell-signature is present but not in Retell's v=<ts>,d=<digest> format";
+  }
+  const ageSeconds = Math.round(Math.abs(Date.now() - Number(match[1])) / 1000);
+  if (ageSeconds > 300) {
+    return `signature timestamp is ${ageSeconds}s old (tolerance 300s) — server clock skew, or a very delayed retry`;
+  }
+  return (
+    `digest mismatch with timestamp only ${ageSeconds}s old, so this is NOT clock skew — ` +
+    "RETELL_API_KEY does not match the key Retell signs with. If your Retell account has " +
+    "more than one API key, try each: the one that works is the signing key."
+  );
+}
+
 export async function POST(req: Request): Promise<Response> {
   // Raw body first — the signature covers the exact bytes. NOTHING is parsed
   // or processed before verification succeeds.
@@ -86,6 +111,13 @@ export async function POST(req: Request): Promise<Response> {
     !signature ||
     !Retell.verify(rawBody, serverEnv("RETELL_API_KEY"), signature)
   ) {
+    // A bare 401 leaves no trace anywhere — no idempotency key, no row, no
+    // dead-letter entry — which makes "Retell isn't sending" and "we're
+    // rejecting it" look identical from our side. Say which, without ever
+    // logging the key or the digest.
+    console.warn(
+      `[retell-webhook] rejected: ${explainSignatureFailure(signature)}`,
+    );
     return new Response("Invalid signature", { status: 401 });
   }
 
