@@ -152,7 +152,17 @@ export const tenantRouter = router({
    * the dashboard itself must never go down with the cache.
    */
   liveCalls: protectedTenantProcedure.query(async ({ ctx }) => {
-    let values: (string | null)[];
+    // The Upstash client deserializes JSON for us, so these come back as
+    // objects — no JSON.parse here (double-parsing would throw).
+    type LiveCall = {
+      callId?: string;
+      status?: string;
+      direction?: string;
+      phoneNumber?: string;
+      startedAt?: number;
+    };
+
+    let values: (LiveCall | null)[];
     try {
       const { redis } = await import("@/lib/redis");
       const client = redis();
@@ -160,19 +170,16 @@ export const tenantRouter = router({
       const keys: string[] = [];
       let cursor = "0";
       do {
-        const [next, batch] = await client.scan(
-          cursor,
-          "MATCH",
-          `call:${ctx.tenant.id}:*`,
-          "COUNT",
-          100,
-        );
+        const [next, batch] = await client.scan(cursor, {
+          match: `call:${ctx.tenant.id}:*`,
+          count: 100,
+        });
         cursor = next;
         keys.push(...batch);
       } while (cursor !== "0" && keys.length < 500);
 
       if (keys.length === 0) return [];
-      values = await client.mget(...keys);
+      values = await client.mget<LiveCall[]>(...keys);
     } catch (error) {
       console.error(
         "[dashboard] liveCalls Redis lookup failed:",
@@ -182,21 +189,9 @@ export const tenantRouter = router({
     }
 
     return values
-      .flatMap((value) => {
-        if (!value) return [];
-        try {
-          const parsed = JSON.parse(value) as {
-            callId?: string;
-            status?: string;
-            direction?: string;
-            phoneNumber?: string;
-            startedAt?: number;
-          };
-          return parsed.callId ? [parsed] : [];
-        } catch {
-          return [];
-        }
-      })
+      .flatMap((value) =>
+        value && typeof value === "object" && value.callId ? [value] : [],
+      )
       .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
   }),
 

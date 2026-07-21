@@ -40,7 +40,7 @@ Copy `.env.example` to `.env` and fill every ACTIVE key:
 | `DATABASE_URL` | Neon console → your project → **Connect** → copy the **pooled** connection string (host contains `-pooler`). |
 | `AUTH_SECRET` | Run `openssl rand -base64 32` in any terminal (Git Bash works) and paste the output. |
 | `APP_URL` | Your production domain, `https://yourdomain.com` — no trailing slash. (Use `http://localhost:3000` only while testing locally.) |
-| `REDIS_URL` | Upstash console → Redis → your database → **Connect** → the `rediss://default:…` TCP string (not the REST URL). |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Upstash console → Redis → your database → **REST API** tab → copy both values. (The app uses Upstash's REST client, not a TCP connection — better suited to serverless, where TCP sockets leak.) |
 | `RETELL_API_KEY` | Retell dashboard → **API Keys** → create/copy. This same key verifies webhook signatures — Retell has no separate signing key. |
 | `RESEND_API_KEY` | Resend → **API Keys**. First add your domain under **Domains** and complete SPF/DKIM/DMARC DNS records — unverified domains land in spam. |
 | `EMAIL_FROM` | `Digivixo <notifications@yourdomain.com>` — an address on that verified domain. |
@@ -291,6 +291,6 @@ npm run db:migrate   # apply migrations
 npm run db:studio    # browse the database
 ```
 
-Local quirk: `REDIS_URL` must point at a reachable Redis even in dev —
+Local quirk: the `UPSTASH_REDIS_REST_*` values must be set even in dev —
 webhook idempotency and the live-call indicator depend on it (the app
 degrades gracefully, but those features silently no-op without it).

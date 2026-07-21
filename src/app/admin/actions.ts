@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { db, tenants } from "@/db";
 import { requireAdminAction } from "@/lib/admin-guard";
+import { isUniqueViolation } from "@/lib/db-errors";
 import { sendPaymentLinkEmail } from "@/lib/email";
 import { createCheckoutForTenant } from "@/lib/polar";
 import { ensureUniqueSlug } from "@/lib/slug";
@@ -119,16 +120,6 @@ export async function createTenantAction(
 
   revalidatePath("/admin");
   return { ok: true };
-}
-
-/** Postgres unique_violation (SQLSTATE 23505), surfaced through the driver. */
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "23505"
-  );
 }
 
 const setAgentIdSchema = z.object({

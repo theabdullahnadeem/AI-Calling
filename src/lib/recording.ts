@@ -54,13 +54,10 @@ export async function archiveCallRecording(params: {
 
   // Claim this call's archival once — call_ended AND call_analyzed both carry
   // recording_url, and only one of them should do the transfer.
-  const claimed = await redis().set(
-    `recording:claim:${callId}`,
-    "1",
-    "EX",
-    24 * 60 * 60,
-    "NX",
-  );
+  const claimed = await redis().set(`recording:claim:${callId}`, "1", {
+    ex: 24 * 60 * 60,
+    nx: true,
+  });
   if (claimed === null) return;
 
   let lastError: unknown;
@@ -92,16 +89,13 @@ export async function archiveCallRecording(params: {
     `[recording] giving up on call ${callId} after ${RETRY_DELAYS_MS.length + 1} attempts`,
   );
   try {
-    await redis().lpush(
-      "recording:deadletter",
-      JSON.stringify({
-        tenantId,
-        callId,
-        sourceUrl, // NOTE: ephemeral — may already be expired on replay
-        error: lastError instanceof Error ? lastError.message : String(lastError),
-        failedAt: new Date().toISOString(),
-      }),
-    );
+    await redis().lpush("recording:deadletter", {
+      tenantId,
+      callId,
+      sourceUrl, // NOTE: ephemeral — may already be expired on replay
+      error: lastError instanceof Error ? lastError.message : String(lastError),
+      failedAt: new Date().toISOString(),
+    });
     // Release the claim so a later webhook retry may attempt again.
     await redis().del(`recording:claim:${callId}`);
   } catch (redisError) {

@@ -34,7 +34,7 @@ Same list as `.env.example`; here's where each value comes from.
 | `DATABASE_URL` | Neon → your project → Connection string — use the **pooled** one (`-pooler` in the host). |
 | `AUTH_SECRET` | Generate: `openssl rand -base64 32` (or any 32+ random bytes). |
 | `APP_URL` | Your deployed origin, e.g. `https://yourdomain.com`. |
-| `REDIS_URL` | Upstash → your Redis database → the `rediss://…` TCP connection string. **Currently missing from your local .env** — webhook idempotency, live-call indicator, and dead-letter lists silently no-op without it. |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Upstash → your Redis database → **REST API** tab. Both are required: without them the Retell webhook returns 503 and no calls are recorded. |
 | `RETELL_API_KEY` | Retell dashboard → API Keys. Also verifies webhook signatures (Retell has no separate signing key). |
 | `RESEND_API_KEY` | Resend → API Keys. Domain must be verified (SPF/DKIM/DMARC) first or mail lands in spam. |
 | `EMAIL_FROM` | e.g. `Digivixo <notifications@yourdomain.com>` — must be on the verified domain. |
