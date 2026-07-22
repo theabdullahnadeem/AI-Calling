@@ -593,6 +593,78 @@ body,
   color: var(--ink);
 }
 
+/* ---- tenant dashboard: responsive ---------------------------------------
+   Below 820px the fixed left rail can't coexist with usable content width,
+   so the shell stacks: the rail becomes a compact sticky top bar (brand +
+   sign out; the in-page anchor links are dropped since the dashboard is a
+   single scroll), cards collapse, and paddings tighten. Tables already
+   scroll horizontally inside .dv-table-wrap. */
+@media (max-width: 820px) {
+  .dv-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .dv-rail {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .dv-rail-brand {
+    padding: 0;
+  }
+
+  /* Hide the in-page anchor nav on mobile; keep the sign-out (in the footer). */
+  .dv-rail > .dv-rail-link {
+    display: none;
+  }
+
+  .dv-rail-footer {
+    margin-top: 0;
+    margin-left: auto;
+  }
+
+  .dv-main {
+    padding: 0 16px 48px;
+  }
+
+  .dv-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 16px 0;
+    margin-bottom: 24px;
+  }
+
+  .dv-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dv-banner {
+    flex-wrap: wrap;
+  }
+
+  .dv-billing-row {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dv-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .dv-input--search {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+}
+
 
 /* ===========================================================================
    Shared auth + admin form primitives (`ui-` prefix). Introduced with dark
