@@ -705,8 +705,18 @@ body,
    when animation can't or shouldn't run. Crawlers read the DOM regardless. */
 .reveal {
   opacity: 0;
-  transform: translateY(28px);
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
   will-change: transform, opacity;
+}
+
+/* Added by an IntersectionObserver (home-content.tsx) when the element scrolls
+   into view — reliable, and independent of any animation library. */
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
 }
 
 .mk-hero-word {
@@ -720,6 +730,7 @@ body,
   .mk-hero-word {
     opacity: 1 !important;
     transform: none !important;
+    transition: none !important;
   }
   .mk-marquee-track {
     animation: none !important;
