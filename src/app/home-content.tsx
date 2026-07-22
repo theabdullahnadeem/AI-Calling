@@ -17,6 +17,13 @@ const number = new Intl.NumberFormat("en-US");
 const HERO_WORDS = ["Never", "miss", "a", "call", "again."];
 const ACCENT_WORD_INDEX = 3; // "call"
 
+// Static base heights (percent) for the hero equalizer bars — they read as a
+// waveform even before GSAP animates them, and if motion never runs.
+const EQ_BARS = [
+  34, 58, 44, 78, 92, 64, 48, 84, 100, 72, 52, 88, 62, 40, 70, 54, 82, 46, 60,
+  36,
+];
+
 const MARQUEE = [
   "Restaurants",
   "Dental clinics",
@@ -117,6 +124,19 @@ export function HomeContent() {
         });
       });
 
+      // Hero equalizer — each bar breathes on its own loop, like live audio.
+      q(".mk-eq span").forEach((bar, i) => {
+        gsap.to(bar, {
+          scaleY: 0.35 + ((i * 7) % 5) * 0.09,
+          transformOrigin: "center",
+          duration: 0.5 + ((i * 3) % 4) * 0.18,
+          ease: "sine.inOut",
+          repeat: -1,
+          yoyo: true,
+          delay: (i % 6) * 0.08,
+        });
+      });
+
       // Nav border once scrolled off the top.
       const nav = q(".mk-nav")[0];
       if (nav) {
@@ -170,8 +190,14 @@ export function HomeContent() {
       </div>
 
       <header className="mk-wrap mk-hero">
-        <p className="mk-eyebrow">Managed voice AI</p>
-        <h1>
+        <div
+          className="mk-glow"
+          style={{ width: 560, height: 560, top: -160, right: -140 }}
+          aria-hidden
+        />
+        <div className="mk-hero-copy">
+          <p className="mk-eyebrow">Managed voice AI</p>
+          <h1>
           {HERO_WORDS.map((word, i) => (
             <span key={i} className="mk-hero-word">
               <span className={i === ACCENT_WORD_INDEX ? "mk-accent" : undefined}>
@@ -194,6 +220,14 @@ export function HomeContent() {
           <a className="mk-btn mk-btn--lg" href="#how">
             See how it works
           </a>
+        </div>
+        </div>
+        <div className="mk-hero-visual" aria-hidden>
+          <div className="mk-eq">
+            {EQ_BARS.map((h, i) => (
+              <span key={i} style={{ height: `${h}%` }} />
+            ))}
+          </div>
         </div>
       </header>
 
@@ -349,6 +383,11 @@ export function HomeContent() {
       </section>
 
       <section className="mk-wrap mk-section">
+        <div
+          className="mk-glow"
+          style={{ width: 520, height: 520, top: -40, right: -180 }}
+          aria-hidden
+        />
         <div className="mk-section-head reveal">
           <p className="mk-kicker">What we&apos;ve measured</p>
           <h2 className="mk-h2">Real numbers, from a real deployment.</h2>
@@ -467,6 +506,17 @@ export function HomeContent() {
       </section>
 
       <section className="mk-wrap mk-close">
+        <div
+          className="mk-glow"
+          style={{
+            width: 640,
+            height: 640,
+            bottom: -260,
+            left: "50%",
+            transform: "translateX(-50%)",
+          }}
+          aria-hidden
+        />
         <h2 className="reveal">See it answer your phone.</h2>
         <p className="reveal">
           Tell us about your business and the calls you&apos;re missing. We&apos;ll
