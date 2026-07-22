@@ -3,4 +3,4 @@
  * Adjust to the real support inbox before launch. The "Retry Payment" CTA
  * mails support until Prompt 6 wires the Polar customer portal link.
  */
-export const SUPPORT_EMAIL = "support@digivixo.com";
+export const SUPPORT_EMAIL = "contact@digivixo.com";

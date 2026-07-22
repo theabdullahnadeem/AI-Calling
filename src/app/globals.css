@@ -1,3 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-slate: var(--slate);
+  --color-signal: var(--signal);
+  --color-alert: var(--alert);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-on-accent: var(--on-accent);
+  --font-display: var(--font-display), sans-serif;
+  --font-body: var(--font-body), sans-serif;
+}
+
 /* ===========================================================================
    Digivixo dashboard design system — docs/05-design-doc.md
    Instrument panel, not marketing page. Five named colors, two type roles,
@@ -704,16 +720,13 @@ body,
    <noscript> unhide and the reduced-motion rule below keep content visible
    when animation can't or shouldn't run. Crawlers read the DOM regardless. */
 .reveal {
-  opacity: 0;
-  transform: translateY(26px);
+  opacity: 1;
+  transform: none;
   transition:
-    opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
-    transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
-  will-change: transform, opacity;
+    opacity 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/* Added by an IntersectionObserver (home-content.tsx) when the element scrolls
-   into view — reliable, and independent of any animation library. */
 .reveal.is-in {
   opacity: 1;
   transform: none;
@@ -721,8 +734,8 @@ body,
 
 .mk-hero-word {
   display: inline-block;
-  opacity: 0;
-  transform: translateY(0.5em);
+  opacity: 1;
+  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -739,22 +752,30 @@ body,
 
 /* ---- nav ---------------------------------------------------------------- */
 
-.mk-nav {
+/* ---- nav ---------------------------------------------------------------- */
+
+.mk-header {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 50;
+  width: 100%;
+  background: color-mix(in srgb, var(--paper) 85%, transparent);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.mk-header--scrolled {
+  border-bottom-color: var(--line);
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+}
+
+.mk-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 0;
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
-  backdrop-filter: saturate(180%) blur(12px);
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s ease;
-}
-
-.mk-nav--scrolled {
-  border-bottom-color: var(--line);
+  padding: 14px 0;
 }
 
 .mk-wordmark {
@@ -830,7 +851,7 @@ body,
 /* ---- hero --------------------------------------------------------------- */
 
 .mk-hero {
-  padding: clamp(64px, 10vw, 128px) 0 clamp(56px, 8vw, 104px);
+  padding: clamp(44px, 5.5vw, 76px) 0 clamp(36px, 4.5vw, 56px);
   position: relative;
   isolation: isolate;
   display: grid;
@@ -952,7 +973,7 @@ body,
   overflow: hidden;
   border-block: 1px solid var(--line);
   padding: 20px 0;
-  margin-top: clamp(48px, 8vw, 96px);
+  margin-top: clamp(28px, 3.5vw, 48px);
   -webkit-mask-image: linear-gradient(
     90deg,
     transparent,
@@ -1003,9 +1024,11 @@ body,
 /* ---- section framework -------------------------------------------------- */
 
 .mk-section {
-  padding-block: clamp(60px, 9vw, 116px);
+  padding-top: 8px;
+  padding-bottom: 24px;
   position: relative;
   isolation: isolate;
+  border-top: 1px solid var(--line-soft);
 }
 
 .mk-section > * {
@@ -1015,7 +1038,33 @@ body,
 
 .mk-section-head {
   max-width: 720px;
-  margin-bottom: clamp(36px, 5vw, 64px);
+  margin-bottom: 16px;
+}
+
+.mk-kicker {
+  color: var(--signal);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0 0 16px;
+}
+
+.mk-h2 {
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(30px, 4.4vw, 52px);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  margin: 0;
+}
+
+.mk-section-lede {
+  color: var(--slate);
+  font-size: clamp(16px, 1.6vw, 18px);
+  line-height: 1.6;
+  max-width: 60ch;
+  margin: 20px 0 0;
 }
 
 .mk-kicker {
@@ -1352,9 +1401,13 @@ body,
   color: var(--slate);
   font-size: clamp(16px, 1.8vw, 19px);
   line-height: 1.5;
-  padding: 22px 0 22px 34px;
+  padding: 18px 0 18px 34px;
   position: relative;
   border-top: 1px solid var(--line);
+}
+
+.mk-list li:last-child {
+  border-bottom: 1px solid var(--line);
 }
 
 .mk-list li::before {
@@ -1374,7 +1427,7 @@ body,
 
 .mk-close {
   text-align: center;
-  padding-block: clamp(80px, 12vw, 150px);
+  padding-block: clamp(20px, 2.5vw, 32px);
   border-top: 1px solid var(--line);
   position: relative;
   isolation: isolate;

@@ -16,8 +16,6 @@ const number = new Intl.NumberFormat("en-US");
 const HERO_WORDS = ["Never", "miss", "a", "call", "again."];
 const ACCENT_WORD_INDEX = 3; // "call"
 
-// Static base heights (percent) for the hero equalizer bars — they read as a
-// waveform even before GSAP animates them, and if motion never runs.
 const EQ_BARS = [
   34, 58, 44, 78, 92, 64, 48, 84, 100, 72, 52, 88, 62, 40, 70, 54, 82, 46, 60,
   36,
@@ -71,10 +69,10 @@ export function HomeContent() {
       "(prefers-reduced-motion: reduce)",
     ).matches;
 
-    // Nav border once scrolled off the top — plain scroll listener.
-    const nav = q(".mk-nav")[0];
+    // Sticky nav border toggle on scroll
+    const header = q(".mk-header")[0];
     const onScroll = () =>
-      nav?.classList.toggle("mk-nav--scrolled", window.scrollY > 8);
+      header?.classList.toggle("mk-header--scrolled", window.scrollY > 8);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
 
@@ -88,204 +86,309 @@ export function HomeContent() {
       const from = Number(node.dataset.countFrom ?? "0");
       const prefix = node.dataset.countPrefix ?? "";
       const suffix = node.dataset.countSuffix ?? "";
-      const setFinal = () => {
-        node.textContent = `${prefix}${to}${suffix}`;
-      };
-      // requestAnimationFrame is paused in a background tab; if it never
-      // starts, land on the final value so the number is never stuck.
       const start = performance.now();
-      const dur = 1300;
+      const dur = 1800;
       const frame = (t: number) => {
         const p = Math.min(1, (t - start) / dur);
-        const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        const eased = 1 - Math.pow(2, -10 * p); // easeOutExpo
         node.textContent = `${prefix}${Math.round(from + (to - from) * eased)}${suffix}`;
         if (p < 1) requestAnimationFrame(frame);
       };
-      if (document.hidden) setFinal();
+      if (document.hidden) node.textContent = `${prefix}${to}${suffix}`;
       else requestAnimationFrame(frame);
     };
 
-    const revealAll = () => {
-      // Hard guarantee: set the final state with the transition disabled, so
-      // visibility can't be left frozen mid-animation under any circumstance.
-      reveals.forEach((el) => {
-        el.style.transition = "none";
-        el.style.opacity = "1";
-        el.style.transform = "none";
-        el.classList.add("is-in");
-      });
-      counters.forEach(runCounter);
-    };
-
-    // Reduced motion: just show everything at its final state.
-    if (reduce) {
-      reveals.forEach((el) => el.classList.add("is-in"));
-      return () => window.removeEventListener("scroll", onScroll);
-    }
-
-    // Hold counters at their start value until they scroll into view.
+    // Hold counters at start value until they scroll into view
     counters.forEach((node) => {
       const prefix = node.dataset.countPrefix ?? "";
       const suffix = node.dataset.countSuffix ?? "";
       node.textContent = `${prefix}${node.dataset.countFrom ?? "0"}${suffix}`;
     });
 
-    // Reveal on scroll — IntersectionObserver is reliable and needs no
-    // library scroll math. Each element reveals once, then is unobserved.
+    const ctx = gsap.context(() => {
+      if (!reduce) {
+        // Hero Eyebrow entrance
+        gsap.fromTo(
+          q(".mk-eyebrow"),
+          { opacity: 0, x: -24, filter: "blur(4px)" },
+          { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.8, ease: "power3.out" },
+        );
+
+        // 3D Perspective Kinetic Word Rise & Blur Unfurl
+        gsap.fromTo(
+          q(".mk-hero-word"),
+          {
+            y: 70,
+            opacity: 0,
+            rotateX: -60,
+            scale: 0.82,
+            filter: "blur(10px)",
+            transformPerspective: 800,
+          },
+          {
+            y: 0,
+            opacity: 1,
+            rotateX: 0,
+            scale: 1,
+            filter: "blur(0px)",
+            duration: 1.25,
+            ease: "power4.out",
+            stagger: 0.08,
+            delay: 0.08,
+          },
+        );
+
+        // Hero subtext entrance
+        gsap.fromTo(
+          q(".mk-lede"),
+          { opacity: 0, y: 28, filter: "blur(4px)" },
+          { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.9, delay: 0.35, ease: "power3.out" },
+        );
+
+        // Hero CTA buttons spring pop
+        gsap.fromTo(
+          q(".mk-hero-actions a"),
+          { opacity: 0, y: 24, scale: 0.92 },
+          {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.8,
+            delay: 0.45,
+            stagger: 0.12,
+            ease: "back.out(1.6)",
+          },
+        );
+
+        // Interactive 3D Parallax Mouse movement over Hero Graphic
+        const heroVisual = q(".mk-hero-visual")[0];
+        if (heroVisual) {
+          const xTo = gsap.quickTo(heroVisual, "rotateY", { duration: 0.6, ease: "power2.out" });
+          const yTo = gsap.quickTo(heroVisual, "rotateX", { duration: 0.6, ease: "power2.out" });
+          const handleMouseMove = (e: MouseEvent) => {
+            const rect = scope.getBoundingClientRect();
+            const relX = (e.clientX - rect.left) / rect.width - 0.5;
+            const relY = (e.clientY - rect.top) / rect.height - 0.5;
+            xTo(relX * 14);
+            yTo(-relY * 14);
+          };
+          scope.addEventListener("mousemove", handleMouseMove);
+        }
+      }
+
+      // Multi-Wave Spectral Audio Equalizer Animation
+      q(".mk-eq span").forEach((bar, i) => {
+        const basePhase = (i / 20) * Math.PI * 2;
+        gsap.to(bar, {
+          scaleY: 0.18 + Math.abs(Math.sin(basePhase)) * 0.72 + (i % 4) * 0.08,
+          opacity: 0.7 + Math.abs(Math.cos(basePhase)) * 0.3,
+          transformOrigin: "bottom center",
+          duration: 0.4 + (i % 5) * 0.1,
+          ease: "sine.inOut",
+          repeat: -1,
+          yoyo: true,
+          delay: (i % 7) * 0.06,
+        });
+      });
+
+      // Interactive Card Hover Physics
+      q(".mk-card, .mk-price, .mk-stat").forEach((card) => {
+        card.addEventListener("mouseenter", () => {
+          gsap.to(card, {
+            y: -6,
+            scale: 1.015,
+            duration: 0.25,
+            ease: "power2.out",
+          });
+        });
+        card.addEventListener("mouseleave", () => {
+          gsap.to(card, {
+            y: 0,
+            scale: 1,
+            duration: 0.3,
+            ease: "power2.out",
+          });
+        });
+      });
+    }, scope);
+
+    // Staggered 3D Scroll Reveal Observer
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
           const el = entry.target as HTMLElement;
           el.classList.add("is-in");
+          if (!reduce) {
+            if (
+              el.classList.contains("mk-grid") ||
+              el.classList.contains("mk-steps") ||
+              el.classList.contains("mk-prices") ||
+              el.classList.contains("mk-stats")
+            ) {
+              gsap.fromTo(
+                el.children,
+                {
+                  y: 44,
+                  opacity: 0,
+                  scale: 0.94,
+                  rotateY: -8,
+                  transformPerspective: 800,
+                },
+                {
+                  y: 0,
+                  opacity: 1,
+                  scale: 1,
+                  rotateY: 0,
+                  duration: 0.85,
+                  stagger: 0.14,
+                  ease: "power3.out",
+                },
+              );
+            } else if (el.classList.contains("mk-preview")) {
+              gsap.fromTo(
+                el,
+                { y: 36, opacity: 0, scale: 0.96 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.9, ease: "power3.out" },
+              );
+              gsap.fromTo(
+                el.querySelectorAll(".mk-preview-row"),
+                { x: -20, opacity: 0 },
+                {
+                  x: 0,
+                  opacity: 1,
+                  duration: 0.6,
+                  stagger: 0.1,
+                  delay: 0.3,
+                  ease: "power2.out",
+                },
+              );
+            } else {
+              gsap.fromTo(
+                el,
+                { y: 36, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" },
+              );
+            }
+          }
           if (el.dataset.countTo) runCounter(el);
           io.unobserve(el);
         });
       },
-      { threshold: 0.2, rootMargin: "0px 0px -6% 0px" },
+      { threshold: 0.12, rootMargin: "0px 0px -50px 0px" },
     );
 
     reveals.forEach((el) => io.observe(el));
-    // Counters that aren't themselves .reveal (e.g. nested in a card).
     counters.forEach((el) => {
       if (!el.classList.contains("reveal")) io.observe(el);
     });
 
-    // Safety net: whatever the scroll position or IntersectionObserver
-    // support, nothing stays invisible. After a short grace period reveal
-    // anything still hidden. setTimeout fires even in a background tab, so
-    // content can never get stuck — the failure mode we will not repeat.
-    const safety = window.setTimeout(revealAll, 2200);
-
-    // Hero headline + equalizer run on load (no scroll dependency).
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        q(".mk-hero-word"),
-        { yPercent: 60, opacity: 0 },
-        {
-          yPercent: 0,
-          opacity: 1,
-          duration: 0.9,
-          ease: "power3.out",
-          stagger: 0.08,
-          delay: 0.1,
-        },
-      );
-
-      q(".mk-eq span").forEach((bar, i) => {
-        gsap.to(bar, {
-          scaleY: 0.35 + ((i * 7) % 5) * 0.09,
-          transformOrigin: "center",
-          duration: 0.5 + ((i * 3) % 4) * 0.18,
-          ease: "sine.inOut",
-          repeat: -1,
-          yoyo: true,
-          delay: (i % 6) * 0.08,
-        });
-      });
-    }, scope);
-
     return () => {
       window.removeEventListener("scroll", onScroll);
-      window.clearTimeout(safety);
       io.disconnect();
       ctx.revert();
     };
   }, []);
 
   return (
-    <div className="mk" ref={root}>
-      {/* No-JS / crawler safety: unhide anything the reveal styles hid. */}
+    <div className="mk min-h-screen overflow-x-clip bg-paper text-ink" ref={root}>
       <noscript>
         <style>{`.reveal,.mk-hero-word{opacity:1!important;transform:none!important}`}</style>
       </noscript>
 
-      <div className="mk-wrap">
-        <nav className="mk-nav">
-          <a className="mk-wordmark" href="/">
-            Digi<span>vixo</span>
-          </a>
-          <div className="mk-nav-actions">
-            <a className="mk-link" href="#how">
-              How it works
+      {/* Sticky Full-Width Header */}
+      <header className="mk-header sticky top-0 z-50 w-full backdrop-blur-md bg-[color-mix(in_srgb,var(--paper)_88%,transparent)] border-b border-transparent transition-all duration-200">
+        <div className="max-w-6xl mx-auto px-6">
+          <nav className="mk-nav flex items-center justify-between py-3.5">
+            <a className="mk-wordmark font-display font-bold text-xl tracking-tight text-ink no-underline" href="/">
+              Digi<span className="text-signal">vixo</span>
             </a>
-            <a className="mk-link" href="#pricing">
-              Pricing
-            </a>
-            <a className="mk-link" href="/login">
-              Client log in
-            </a>
-            <a className="mk-btn mk-btn--primary" href={mailto("Digivixo enquiry")}>
-              Talk to us
-            </a>
-          </div>
-        </nav>
-      </div>
-
-      <header className="mk-wrap mk-hero">
-        <div
-          className="mk-glow"
-          style={{ width: 560, height: 560, top: -160, right: -140 }}
-          aria-hidden
-        />
-        <div className="mk-hero-copy">
-          <p className="mk-eyebrow">Managed voice AI</p>
-          <h1>
-          {HERO_WORDS.map((word, i) => (
-            <span key={i} className="mk-hero-word">
-              <span className={i === ACCENT_WORD_INDEX ? "mk-accent" : undefined}>
-                {word}
-              </span>
-              {i < HERO_WORDS.length - 1 ? " " : null}
-            </span>
-          ))}
-        </h1>
-        <p className="mk-lede reveal">
-          Digivixo answers your business line with an AI agent that handles the
-          conversation, captures every booking, and shows you exactly what
-          happened on every call — while you never touch a setting. We build
-          and run the whole thing for you.
-        </p>
-        <div className="mk-hero-actions reveal">
-          <a className="mk-btn mk-btn--primary mk-btn--lg" href={mailto("Digivixo enquiry")}>
-            Talk to us
-          </a>
-          <a className="mk-btn mk-btn--lg" href="#how">
-            See how it works
-          </a>
-        </div>
-        </div>
-        <div className="mk-hero-visual" aria-hidden>
-          <div className="mk-eq">
-            {EQ_BARS.map((h, i) => (
-              <span key={i} style={{ height: `${h}%` }} />
-            ))}
-          </div>
+            <div className="mk-nav-actions flex items-center gap-6 text-sm">
+              <a className="mk-link text-slate hover:text-ink transition-colors duration-150 no-underline hidden sm:inline-block" href="#how">
+                How it works
+              </a>
+              <a className="mk-link text-slate hover:text-ink transition-colors duration-150 no-underline hidden sm:inline-block" href="#pricing">
+                Pricing
+              </a>
+              <a className="mk-link text-slate hover:text-ink transition-colors duration-150 no-underline" href="/login">
+                Client log in
+              </a>
+              <a className="mk-btn mk-btn--primary inline-flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-full no-underline bg-signal border border-signal text-on-accent hover:brightness-95 transition-all duration-150" href={mailto("Digivixo enquiry")}>
+                Talk to us
+              </a>
+            </div>
+          </nav>
         </div>
       </header>
 
-      <div className="mk-marquee" aria-hidden>
-        <div className="mk-marquee-track">
+      {/* Hero Section */}
+      <section className="relative isolate max-w-6xl mx-auto px-6 py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] items-center gap-12">
+        <div
+          className="mk-glow absolute rounded-full bg-signal filter blur-[100px] opacity-20 pointer-events-none -z-10"
+          style={{ width: 560, height: 560, top: -160, right: -140 }}
+          aria-hidden
+        />
+        <div className="mk-hero-copy relative z-10">
+          <p className="mk-eyebrow inline-flex items-center gap-2 text-signal text-xs font-semibold tracking-wider uppercase mb-5 before:content-[''] before:w-2 before:h-2 before:rounded-full before:bg-signal">
+            Managed voice AI
+          </p>
+          <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-none mb-6 max-w-xl">
+            {HERO_WORDS.map((word, i) => (
+              <span key={i} className="mk-hero-word inline-block mr-2">
+                <span className={i === ACCENT_WORD_INDEX ? "text-signal" : undefined}>
+                  {word}
+                </span>
+              </span>
+            ))}
+          </h1>
+          <p className="mk-lede reveal text-slate text-base sm:text-lg lg:text-xl leading-relaxed mb-8 max-w-xl">
+            Digivixo answers your business line with an AI agent that handles the
+            conversation, captures every booking, and shows you exactly what
+            happened on every call — while you never touch a setting. We build
+            and run the whole thing for you.
+          </p>
+          <div className="mk-hero-actions reveal flex flex-wrap gap-4">
+            <a className="mk-btn mk-btn--primary mk-btn--lg inline-flex items-center gap-2 text-base font-medium px-7 py-3.5 rounded-full no-underline bg-signal border border-signal text-on-accent hover:brightness-95 transition-all duration-150 shadow-sm" href={mailto("Digivixo enquiry")}>
+              Talk to us
+            </a>
+            <a className="mk-btn mk-btn--lg inline-flex items-center gap-2 text-base font-medium px-7 py-3.5 rounded-full no-underline bg-card border border-line text-ink hover:border-ink transition-all duration-150" href="#how">
+              See how it works
+            </a>
+          </div>
+        </div>
+        <div className="mk-hero-visual relative z-10 hidden lg:flex items-center justify-center min-h-[260px]" aria-hidden>
+          <div className="mk-eq flex items-center gap-2 h-48">
+            {EQ_BARS.map((h, i) => (
+              <span key={i} className="block w-2.5 rounded-full bg-signal origin-center" style={{ height: `${h}%` }} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Marquee Section */}
+      <div className="mk-marquee overflow-hidden border-y border-line py-5 my-8" aria-hidden>
+        <div className="mk-marquee-track inline-flex gap-12 whitespace-nowrap animate-[mk-marquee_32s_linear_infinite]">
           {[...MARQUEE, ...MARQUEE].map((item, i) => (
-            <span key={i} className="mk-marquee-item">
+            <span key={i} className="mk-marquee-item font-display text-xl font-semibold text-slate inline-flex items-center gap-12 after:content-[''] after:w-2 after:h-2 after:rounded-full after:bg-signal">
               {item}
             </span>
           ))}
         </div>
       </div>
 
-      <section className="mk-wrap mk-section">
-        <div className="mk-section-head reveal">
-          <p className="mk-kicker">The problem</p>
-          <h2 className="mk-h2">A missed call is a missed customer.</h2>
-          <p className="mk-section-lede">
+      {/* Section 1: The Problem */}
+      <section className="relative isolate max-w-6xl mx-auto px-6 py-12 lg:py-14 border-t border-line-soft">
+        <div className="mk-section-head reveal max-w-2xl mb-8 lg:mb-10">
+          <p className="mk-kicker text-signal text-xs font-semibold tracking-wider uppercase mb-2">The problem</p>
+          <h2 className="mk-h2 font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight">A missed call is a missed customer.</h2>
+          <p className="mk-section-lede text-slate text-base sm:text-lg leading-relaxed mt-4">
             Every unanswered call during business hours is a lead someone else
             gets. After hours, it&apos;s usually a lead who never calls back.
             Reception staff are expensive and don&apos;t flex when volume
             spikes — and a press-1-for-hours menu just annoys the caller.
           </p>
         </div>
-        <div className="mk-grid">
+        <div className="mk-grid grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
               title: "Answers on the first ring",
@@ -303,28 +406,29 @@ export function HomeContent() {
               icon: "M5 4h10l4 4v12H5zM14 4v5h5M8 13h8M8 17h5",
             },
           ].map((f) => (
-            <div className="mk-card reveal" key={f.title}>
-              <div className="mk-card-mark">
+            <div className="mk-card reveal bg-card border border-line rounded-2xl p-6 lg:p-8 hover:-translate-y-1 transition-all duration-200 shadow-sm hover:border-signal/40" key={f.title}>
+              <div className="mk-card-mark w-10 h-10 rounded-xl bg-signal/15 text-signal flex items-center justify-center mb-5">
                 <Icon d={f.icon} />
               </div>
-              <h3>{f.title}</h3>
-              <p>{f.body}</p>
+              <h3 className="font-display text-xl font-semibold mb-2.5">{f.title}</h3>
+              <p className="text-slate text-sm sm:text-base leading-relaxed">{f.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section id="how" className="mk-wrap mk-section">
-        <div className="mk-section-head reveal">
-          <p className="mk-kicker">How it works</p>
-          <h2 className="mk-h2">Set up once. Runs itself after.</h2>
-          <p className="mk-section-lede">
+      {/* Section 2: How it works */}
+      <section id="how" className="relative isolate max-w-6xl mx-auto px-6 py-12 lg:py-14 border-t border-line-soft">
+        <div className="mk-section-head reveal max-w-2xl mb-8 lg:mb-10">
+          <p className="mk-kicker text-signal text-xs font-semibold tracking-wider uppercase mb-2">How it works</p>
+          <h2 className="mk-h2 font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight">Set up once. Runs itself after.</h2>
+          <p className="mk-section-lede text-slate text-base sm:text-lg leading-relaxed mt-4">
             We configure the agent around your business before it takes a single
             call. From then on everything it does appears on your dashboard as
             it happens.
           </p>
         </div>
-        <div className="mk-steps">
+        <div className="mk-steps grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
               title: "The call comes in",
@@ -339,53 +443,54 @@ export function HomeContent() {
               body: "Recording, synced transcript and a sentiment tag on every call, so you can check any conversation without hearing them all.",
             },
           ].map((s) => (
-            <div className="mk-step reveal" key={s.title}>
-              <h3>{s.title}</h3>
-              <p>{s.body}</p>
+            <div className="mk-step reveal border-t-2 border-signal pt-5" key={s.title}>
+              <h3 className="font-display text-xl font-semibold mb-2">{s.title}</h3>
+              <p className="text-slate text-sm sm:text-base leading-relaxed">{s.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="mk-wrap mk-section">
-        <div className="mk-section-head reveal">
-          <p className="mk-kicker">Your dashboard</p>
-          <h2 className="mk-h2">Built around your business, not a template.</h2>
-          <p className="mk-section-lede">
+      {/* Section 3: Your Dashboard */}
+      <section className="relative isolate max-w-6xl mx-auto px-6 py-12 lg:py-14 border-t border-line-soft">
+        <div className="mk-section-head reveal max-w-2xl mb-8 lg:mb-10">
+          <p className="mk-kicker text-signal text-xs font-semibold tracking-wider uppercase mb-2">Your dashboard</p>
+          <h2 className="mk-h2 font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight">Built around your business, not a template.</h2>
+          <p className="mk-section-lede text-slate text-base sm:text-lg leading-relaxed mt-4">
             What gets captured is configured per client. A restaurant needs
             party size and order items; an accounting firm needs the service
             requested and how urgent it is. Same platform, different clipboard.
           </p>
         </div>
-        <div className="mk-preview reveal">
-          <div className="mk-preview-bar">
-            <div className="mk-preview-dots">
-              <span />
-              <span />
-              <span />
+        <div className="mk-preview reveal bg-card border border-line rounded-2xl overflow-hidden shadow-sm">
+          <div className="mk-preview-bar flex items-center justify-between px-5 py-3 border-b border-line text-xs text-slate">
+            <div className="mk-preview-dots flex gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-line" />
+              <span className="w-2.5 h-2.5 rounded-full bg-line" />
+              <span className="w-2.5 h-2.5 rounded-full bg-line" />
             </div>
             <span>Standard · Active</span>
           </div>
-          <div className="mk-preview-body">
-            <div className="mk-preview-cards">
-              <div className="mk-preview-card mk-preview-card--live">
-                <div className="mk-preview-value">128</div>
-                <div className="mk-preview-label">
+          <div className="mk-preview-body p-5 lg:p-6 grid gap-5">
+            <div className="mk-preview-cards grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="mk-preview-card mk-preview-card--live relative border border-line rounded-xl p-4 overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-0.5 before:bg-signal">
+                <div className="mk-preview-value font-display text-2xl sm:text-3xl font-bold tabular-nums">128</div>
+                <div className="mk-preview-label text-slate text-xs flex items-center gap-1.5 mt-1">
                   Calls received
-                  <span className="dv-live-dot" aria-hidden />
+                  <span className="dv-live-dot w-2 h-2 rounded-full bg-signal animate-pulse" aria-hidden />
                 </div>
               </div>
-              <div className="mk-preview-card">
-                <div className="mk-preview-value">31</div>
-                <div className="mk-preview-label">Outbound follow-ups</div>
+              <div className="mk-preview-card border border-line rounded-xl p-4 overflow-hidden">
+                <div className="mk-preview-value font-display text-2xl sm:text-3xl font-bold tabular-nums">31</div>
+                <div className="mk-preview-label text-slate text-xs mt-1">Outbound follow-ups</div>
               </div>
-              <div className="mk-preview-card">
-                <div className="mk-preview-value">74</div>
-                <div className="mk-preview-label">Bookings secured</div>
+              <div className="mk-preview-card border border-line rounded-xl p-4 overflow-hidden">
+                <div className="mk-preview-value font-display text-2xl sm:text-3xl font-bold tabular-nums">74</div>
+                <div className="mk-preview-label text-slate text-xs mt-1">Bookings secured</div>
               </div>
             </div>
-            <div className="mk-preview-rows">
-              <div className="mk-preview-row mk-preview-row--head">
+            <div className="mk-preview-rows border border-line rounded-xl text-xs overflow-hidden">
+              <div className="mk-preview-row mk-preview-row--head grid grid-cols-[1.4fr_0.8fr_1fr_1fr] gap-2.5 px-4 py-3 bg-paper text-slate font-medium border-b border-line-soft">
                 <span>Caller</span>
                 <span>Duration</span>
                 <span>Sentiment</span>
@@ -396,18 +501,14 @@ export function HomeContent() {
                 ["+1 555 010 3390", "1:12", "Inquisitive", "Asked hours"],
                 ["+1 555 010 7715", "3:48", "Positive", "Order placed"],
               ].map((r) => (
-                <div className="mk-preview-row" key={r[0]}>
-                  <span>{r[0]}</span>
-                  <span>{r[1]}</span>
-                  <span>
-                    <span
-                      className={
-                        r[2] === "Positive" ? "dv-dot dv-dot--signal" : "dv-dot"
-                      }
-                    />
+                <div className="mk-preview-row grid grid-cols-[1.4fr_0.8fr_1fr_1fr] gap-2.5 px-4 py-3 border-b border-line-soft last:border-b-0 tabular-nums items-center" key={r[0]}>
+                  <span className="font-mono text-ink">{r[0]}</span>
+                  <span className="text-slate">{r[1]}</span>
+                  <span className="flex items-center gap-1.5 text-ink">
+                    <span className={r[2] === "Positive" ? "w-2 h-2 rounded-full bg-signal" : "w-2 h-2 rounded-full bg-slate"} />
                     {r[2]}
                   </span>
-                  <span>{r[3]}</span>
+                  <span className="text-ink font-medium">{r[3]}</span>
                 </div>
               ))}
             </div>
@@ -415,37 +516,38 @@ export function HomeContent() {
         </div>
       </section>
 
-      <section className="mk-wrap mk-section">
+      {/* Section 4: Real Numbers */}
+      <section className="relative isolate max-w-6xl mx-auto px-6 py-12 lg:py-14 border-t border-line-soft">
         <div
-          className="mk-glow"
+          className="mk-glow absolute rounded-full bg-signal filter blur-[100px] opacity-20 pointer-events-none -z-10"
           style={{ width: 520, height: 520, top: -40, right: -180 }}
           aria-hidden
         />
-        <div className="mk-section-head reveal">
-          <p className="mk-kicker">What we&apos;ve measured</p>
-          <h2 className="mk-h2">Real numbers, from a real deployment.</h2>
-          <p className="mk-section-lede">
+        <div className="mk-section-head reveal max-w-2xl mb-8 lg:mb-10">
+          <p className="mk-kicker text-signal text-xs font-semibold tracking-wider uppercase mb-2">What we&apos;ve measured</p>
+          <h2 className="mk-h2 font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight">Real numbers, from a real deployment.</h2>
+          <p className="mk-section-lede text-slate text-base sm:text-lg leading-relaxed mt-4">
             From one client, referenced anonymously with their permission, over
             a 60-day measurement period.
           </p>
         </div>
-        <div className="mk-stats">
-          <div className="mk-stat reveal">
+        <div className="mk-stats grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mk-stat reveal border border-line rounded-2xl p-6 lg:p-8 bg-card">
             <div
-              className="mk-stat-value"
+              className="mk-stat-value font-display text-5xl sm:text-6xl font-bold text-signal tracking-tight leading-none tabular-nums"
               data-count-to="5"
               data-count-from="32"
               data-count-suffix="%"
             >
               5%
             </div>
-            <div className="mk-stat-label">
+            <div className="mk-stat-label text-slate text-sm sm:text-base leading-relaxed mt-4">
               Missed-call rate, down from 32% before the agent went live.
             </div>
           </div>
-          <div className="mk-stat reveal">
+          <div className="mk-stat reveal border border-line rounded-2xl p-6 lg:p-8 bg-card">
             <div
-              className="mk-stat-value"
+              className="mk-stat-value font-display text-5xl sm:text-6xl font-bold text-signal tracking-tight leading-none tabular-nums"
               data-count-to="13"
               data-count-from="0"
               data-count-prefix="+"
@@ -453,13 +555,13 @@ export function HomeContent() {
             >
               +13%
             </div>
-            <div className="mk-stat-label">
+            <div className="mk-stat-label text-slate text-sm sm:text-base leading-relaxed mt-4">
               Revenue, attributed to calls that would previously have gone
               unanswered.
             </div>
           </div>
         </div>
-        <p className="mk-caveat reveal">
+        <p className="mk-caveat reveal text-slate text-xs sm:text-sm leading-relaxed max-w-2xl mt-6">
           That&apos;s one client, and we say so. We don&apos;t publish
           industry-average or projected figures — we can&apos;t show you the
           methodology behind numbers we didn&apos;t measure ourselves. As more
@@ -468,40 +570,47 @@ export function HomeContent() {
         </p>
       </section>
 
-      <section id="pricing" className="mk-wrap mk-section">
-        <div className="mk-section-head reveal">
-          <p className="mk-kicker">Pricing</p>
-          <h2 className="mk-h2">One monthly plan. No setup fee.</h2>
-          <p className="mk-section-lede">
+      {/* Section 5: Pricing */}
+      <section id="pricing" className="relative isolate max-w-6xl mx-auto px-6 py-12 lg:py-14 border-t border-line-soft">
+        <div className="mk-section-head reveal max-w-2xl mb-8 lg:mb-10">
+          <p className="mk-kicker text-signal text-xs font-semibold tracking-wider uppercase mb-2">Pricing</p>
+          <h2 className="mk-h2 font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight">One monthly plan. No setup fee.</h2>
+          <p className="mk-section-lede text-slate text-base sm:text-lg leading-relaxed mt-4">
             Included minutes cover the calls your agent handles; beyond that
             it&apos;s{" "}
-            <strong style={{ color: "var(--ink)" }}>
+            <strong className="text-ink font-semibold">
               ${OVERAGE_RATE_PER_MINUTE_USD} per minute
             </strong>
             , shown on your dashboard as you use it. Setup, agent configuration
             and ongoing tuning are included.
           </p>
         </div>
-        <div className="mk-prices">
+        <div className="mk-prices grid grid-cols-1 md:grid-cols-3 gap-6">
           {TIERS.map((tier) => {
             const pricing = TIER_PRICING[tier.key];
             return (
               <div
                 key={tier.key}
-                className={`mk-price reveal${tier.tag ? " mk-price--featured" : ""}`}
+                className={`mk-price reveal bg-card border rounded-2xl p-6 lg:p-8 flex flex-col justify-between ${
+                  tier.tag ? "border-signal ring-1 ring-signal shadow-sm" : "border-line"
+                }`}
               >
-                <div className="mk-price-name">
-                  {tier.name}
-                  {tier.tag ? (
-                    <span className="mk-price-tag">{tier.tag}</span>
-                  ) : null}
+                <div>
+                  <div className="mk-price-name flex items-center justify-between font-display text-lg font-semibold mb-3">
+                    {tier.name}
+                    {tier.tag ? (
+                      <span className="mk-price-tag text-xs font-semibold uppercase tracking-wider text-on-accent bg-signal px-2.5 py-1 rounded-full">
+                        {tier.tag}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mk-price-amount font-display text-4xl font-bold tracking-tight leading-none mb-4 tabular-nums">
+                    {currency.format(Number(pricing.monthlyPriceUsd))}
+                    <span className="mk-price-period text-slate text-base font-normal font-sans"> / month</span>
+                  </div>
                 </div>
-                <div className="mk-price-amount">
-                  {currency.format(Number(pricing.monthlyPriceUsd))}
-                  <span className="mk-price-period"> / month</span>
-                </div>
-                <p className="mk-price-detail">
-                  <strong>{number.format(pricing.minuteCap)} minutes</strong>{" "}
+                <p className="mk-price-detail text-slate text-sm leading-relaxed border-t border-line-soft pt-4 mt-4">
+                  <strong className="text-ink font-semibold">{number.format(pricing.minuteCap)} minutes</strong>{" "}
                   included each month.
                   <br />
                   {tier.fit}
@@ -512,52 +621,52 @@ export function HomeContent() {
         </div>
       </section>
 
-      <section className="mk-wrap mk-section">
-        <div className="mk-section-head reveal">
-          <p className="mk-kicker">Straight answers</p>
-          <h2 className="mk-h2">What this is not.</h2>
+      {/* Section 6: Straight Answers (What this is not) */}
+      <section className="relative isolate max-w-6xl mx-auto px-6 py-12 lg:py-14 border-t border-line-soft">
+        <div className="mk-section-head reveal max-w-2xl mb-8 lg:mb-10">
+          <p className="mk-kicker text-signal text-xs font-semibold tracking-wider uppercase mb-2">Straight answers</p>
+          <h2 className="mk-h2 font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight">What this is not.</h2>
         </div>
-        <ul className="mk-list">
-          <li className="reveal">
-            <strong>Not a tool you have to run.</strong> You never write a
+        <ul className="mk-list divide-y divide-line border-y border-line max-w-3xl pl-0 list-none my-0">
+          <li className="reveal text-slate text-base sm:text-lg leading-relaxed py-5 pl-8 relative before:content-['—'] before:absolute before:left-0 before:text-signal before:font-bold">
+            <strong className="text-ink font-semibold">Not a tool you have to run.</strong> You never write a
             prompt, pick a voice, or configure telephony. That stays our job.
           </li>
-          <li className="reveal">
-            <strong>Not one-size-fits-all.</strong> What the agent captures is
+          <li className="reveal text-slate text-base sm:text-lg leading-relaxed py-5 pl-8 relative before:content-['—'] before:absolute before:left-0 before:text-signal before:font-bold">
+            <strong className="text-ink font-semibold">Not one-size-fits-all.</strong> What the agent captures is
             set up around your business at onboarding.
           </li>
-          <li className="reveal">
-            <strong>Not a payment processor.</strong> We handle calls and
+          <li className="reveal text-slate text-base sm:text-lg leading-relaxed py-5 pl-8 relative before:content-['—'] before:absolute before:left-0 before:text-signal before:font-bold">
+            <strong className="text-ink font-semibold">Not a payment processor.</strong> We handle calls and
             bookings. Your customer payments stay wherever they are today.
           </li>
-          <li className="reveal">
-            <strong>Not self-serve.</strong> We onboard clients personally, and
+          <li className="reveal text-slate text-base sm:text-lg leading-relaxed py-5 pl-8 relative before:content-['—'] before:absolute before:left-0 before:text-signal before:font-bold">
+            <strong className="text-ink font-semibold">Not self-serve.</strong> We onboard clients personally, and
             outbound follow-up calls are enabled only after we discuss how you
             obtain consent to call your customers.
           </li>
         </ul>
       </section>
 
-      <section className="mk-wrap mk-close">
+      {/* Section 7: Closing CTA */}
+      <section className="relative isolate max-w-6xl mx-auto px-6 py-16 lg:py-20 text-center border-t border-line overflow-hidden">
         <div
-          className="mk-glow"
+          className="mk-glow absolute rounded-full bg-signal filter blur-[120px] opacity-20 pointer-events-none -z-10 left-1/2 -translate-x-1/2"
           style={{
             width: 640,
             height: 640,
             bottom: -260,
-            left: "50%",
-            transform: "translateX(-50%)",
           }}
           aria-hidden
         />
-        <h2 className="reveal">See it answer your phone.</h2>
-        <p className="reveal">
+        <h2 className="reveal font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-none mb-4">See it answer your phone.</h2>
+        <p className="reveal text-slate text-base sm:text-lg leading-relaxed max-w-lg mx-auto mb-8">
           Tell us about your business and the calls you&apos;re missing. We&apos;ll
           show you what the agent would do with them.
         </p>
         <div className="reveal">
           <a
-            className="mk-btn mk-btn--primary mk-btn--lg"
+            className="mk-btn mk-btn--primary mk-btn--lg inline-flex items-center gap-2 text-base font-medium px-8 py-3.5 rounded-full no-underline bg-signal border border-signal text-on-accent hover:brightness-95 transition-all duration-150 shadow-sm"
             href={mailto("Digivixo enquiry")}
           >
             Talk to us
@@ -565,9 +674,10 @@ export function HomeContent() {
         </div>
       </section>
 
-      <footer className="mk-wrap mk-footer">
+      {/* Footer */}
+      <footer className="max-w-6xl mx-auto px-6 py-8 border-t border-line flex flex-wrap justify-between items-center gap-4 text-slate text-xs sm:text-sm">
         <span>© {new Date().getFullYear()} Digivixo</span>
-        <a className="mk-link" href={`mailto:${SUPPORT_EMAIL}`}>
+        <a className="text-slate hover:text-ink transition-colors duration-150 no-underline" href={`mailto:${SUPPORT_EMAIL}`}>
           {SUPPORT_EMAIL}
         </a>
       </footer>
