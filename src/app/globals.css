@@ -819,8 +819,69 @@ body,
 /* ---- hero --------------------------------------------------------------- */
 
 .mk-hero {
-  padding: clamp(72px, 12vw, 150px) 0 clamp(56px, 8vw, 104px);
+  padding: clamp(64px, 10vw, 128px) 0 clamp(56px, 8vw, 104px);
   position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  align-items: center;
+  gap: 48px;
+}
+
+.mk-hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+/* Voice-equalizer graphic filling the hero's right side. */
+.mk-hero-visual {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.mk-eq {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 220px;
+}
+
+.mk-eq span {
+  display: block;
+  width: 9px;
+  border-radius: 999px;
+  background: var(--signal);
+  transform-origin: center;
+}
+
+@media (max-width: 900px) {
+  .mk-hero {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .mk-hero-visual {
+    display: none;
+  }
+}
+
+/* Ambient signal-green glows that give the flat areas depth. Decorative,
+   non-interactive, always behind content. */
+.mk-glow {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--signal);
+  filter: blur(100px);
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: 0;
+}
+
+:root[data-theme="dark"] .mk-glow {
+  opacity: 0.22;
 }
 
 .mk-eyebrow {
@@ -845,12 +906,15 @@ body,
 
 .mk-hero h1 {
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(42px, 7.4vw, 104px);
-  line-height: 0.98;
+  font-size: clamp(40px, 6.6vw, 92px);
+  /* >=1 so descenders on a wrapped line ("again.") never collide with the
+     lede that follows. Extra padding-bottom guards the final line's descender. */
+  line-height: 1.04;
   letter-spacing: -0.035em;
   font-weight: 700;
-  margin: 0 0 30px;
-  max-width: 15ch;
+  margin: 0 0 28px;
+  padding-bottom: 0.06em;
+  max-width: 12ch;
 }
 
 .mk-hero h1 .mk-accent {
@@ -928,7 +992,14 @@ body,
 /* ---- section framework -------------------------------------------------- */
 
 .mk-section {
-  padding-block: clamp(64px, 11vw, 140px);
+  padding-block: clamp(60px, 9vw, 116px);
+  position: relative;
+  isolation: isolate;
+}
+
+.mk-section > * {
+  position: relative;
+  z-index: 1;
 }
 
 .mk-section-head {
@@ -1294,6 +1365,14 @@ body,
   text-align: center;
   padding-block: clamp(80px, 12vw, 150px);
   border-top: 1px solid var(--line);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.mk-close > * {
+  position: relative;
+  z-index: 1;
 }
 
 .mk-close h2 {
