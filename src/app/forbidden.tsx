@@ -10,12 +10,10 @@ export default function Forbidden() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#FAFAF8",
-        fontFamily:
-          "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        background: "var(--paper)",
       }}
     >
-      <p style={{ color: "#161B22", fontSize: 14 }}>
+      <p style={{ color: "var(--ink)", fontSize: 14 }}>
         403 — you don&apos;t have access to this page.
       </p>
     </main>

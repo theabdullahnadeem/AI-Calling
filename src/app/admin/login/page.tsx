@@ -6,15 +6,7 @@ export const metadata: Metadata = { title: "Admin — Digivixo" };
 
 export default function AdminLoginPage() {
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#161B22",
-      }}
-    >
+    <main className="ui-auth-screen ui-auth-screen--dark">
       <AdminLoginForm />
     </main>
   );

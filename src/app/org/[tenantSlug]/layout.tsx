@@ -47,16 +47,16 @@ export default async function OrgLayout({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#FAFAF8",
-          fontFamily:
-            "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+          background: "var(--paper)",
         }}
       >
-        <div style={{ maxWidth: 440, textAlign: "center", color: "#161B22" }}>
-          <h1 style={{ fontSize: 22, marginBottom: 12, color: "#B3542C" }}>
+        <div
+          style={{ maxWidth: 440, textAlign: "center", color: "var(--ink)" }}
+        >
+          <h1 style={{ fontSize: 22, marginBottom: 12, color: "var(--alert)" }}>
             Dashboard access is paused
           </h1>
-          <p style={{ fontSize: 14, color: "#5B6472", lineHeight: 1.6 }}>
+          <p style={{ fontSize: 14, color: "var(--slate)", lineHeight: 1.6 }}>
             Your account is suspended. Contact us to resolve billing and
             restore access — your call data is safe and will be here when
             you&apos;re back.

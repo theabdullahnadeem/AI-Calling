@@ -28,8 +28,8 @@ export function CreateTenantForm() {
     <form
       action={formAction}
       style={{
-        background: "#FFFFFF",
-        border: "1px solid #E4E4E0",
+        background: "var(--card)",
+        border: "1px solid var(--line)",
         borderRadius: 6,
         padding: 24,
         maxWidth: 620,
@@ -101,10 +101,10 @@ export function CreateTenantForm() {
         />
       </label>
       {state.error ? (
-        <p style={{ color: "#B3542C", marginTop: 12 }}>{state.error}</p>
+        <p style={{ color: "var(--alert)", marginTop: 12 }}>{state.error}</p>
       ) : null}
       {state.ok ? (
-        <p style={{ color: "#1F6F5C", marginTop: 12 }}>
+        <p style={{ color: "var(--signal)", marginTop: 12 }}>
           Tenant created with status pending_payment.
         </p>
       ) : null}
@@ -114,8 +114,8 @@ export function CreateTenantForm() {
         style={{
           marginTop: 16,
           padding: "10px 24px",
-          background: "#1F6F5C",
-          color: "#FAFAF8",
+          background: "var(--signal)",
+          color: "var(--on-accent)",
           border: "none",
           borderRadius: 6,
           fontSize: 14,
@@ -134,8 +134,10 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   marginTop: 4,
   padding: "8px 10px",
-  border: "1px solid #C9C9C4",
+  border: "1px solid var(--input-border)",
   borderRadius: 6,
   fontSize: 13,
   boxSizing: "border-box",
+  background: "var(--input-bg)",
+  color: "var(--ink)",
 };

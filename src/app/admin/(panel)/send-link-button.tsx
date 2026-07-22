@@ -31,9 +31,9 @@ export function SendLinkButton({
         }
         style={{
           padding: "6px 12px",
-          background: alreadySent ? "#FFFFFF" : "#1F6F5C",
-          color: alreadySent ? "#1F6F5C" : "#FAFAF8",
-          border: "1px solid #1F6F5C",
+          background: alreadySent ? "var(--card)" : "var(--signal)",
+          color: alreadySent ? "var(--signal)" : "var(--paper)",
+          border: "1px solid var(--signal)",
           borderRadius: 6,
           fontSize: 12,
           cursor: pending ? "default" : "pointer",
@@ -48,7 +48,7 @@ export function SendLinkButton({
             : "Send payment link"}
       </button>
       {state.error ? (
-        <span style={{ color: "#B3542C", fontSize: 11, marginLeft: 8 }}>
+        <span style={{ color: "var(--alert)", fontSize: 11, marginLeft: 8 }}>
           {state.error}
         </span>
       ) : null}

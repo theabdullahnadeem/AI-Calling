@@ -8,9 +8,9 @@ import { SendLinkButton } from "./send-link-button";
 export const dynamic = "force-dynamic";
 
 const STATUS_COLORS: Record<string, string> = {
-  pending_payment: "#5B6472",
-  active: "#1F6F5C",
-  suspended: "#B3542C",
+  pending_payment: "var(--slate)",
+  active: "var(--signal)",
+  suspended: "var(--alert)",
 };
 
 function formatDate(value: Date | null): string {
@@ -38,13 +38,13 @@ export default async function AdminHomePage() {
             width: "100%",
             borderCollapse: "collapse",
             fontSize: 13,
-            background: "#FFFFFF",
-            border: "1px solid #E4E4E0",
+            background: "var(--card)",
+            border: "1px solid var(--line)",
             borderRadius: 6,
           }}
         >
           <thead>
-            <tr style={{ textAlign: "left", color: "#5B6472" }}>
+            <tr style={{ textAlign: "left", color: "var(--slate)" }}>
               {[
                 "Business",
                 "Slug",
@@ -60,7 +60,7 @@ export default async function AdminHomePage() {
                   key={h}
                   style={{
                     padding: "10px 12px",
-                    borderBottom: "1px solid #E4E4E0",
+                    borderBottom: "1px solid var(--line)",
                     fontWeight: 500,
                   }}
                 >
@@ -74,18 +74,18 @@ export default async function AdminHomePage() {
               <tr>
                 <td
                   colSpan={9}
-                  style={{ padding: "24px 12px", color: "#5B6472" }}
+                  style={{ padding: "24px 12px", color: "var(--slate)" }}
                 >
                   No tenants yet — create the first one below.
                 </td>
               </tr>
             ) : (
               rows.map((t) => (
-                <tr key={t.id} style={{ borderBottom: "1px solid #F0F0EC" }}>
+                <tr key={t.id} style={{ borderBottom: "1px solid var(--line-soft)" }}>
                   <td style={{ padding: "10px 12px", fontWeight: 500 }}>
                     {t.name}
                   </td>
-                  <td style={{ padding: "10px 12px", color: "#5B6472" }}>
+                  <td style={{ padding: "10px 12px", color: "var(--slate)" }}>
                     {t.slug}
                   </td>
                   <td style={{ padding: "10px 12px" }}>{t.businessType}</td>
@@ -95,7 +95,7 @@ export default async function AdminHomePage() {
                   <td style={{ padding: "10px 12px" }}>
                     <span
                       style={{
-                        color: STATUS_COLORS[t.status] ?? "#161B22",
+                        color: STATUS_COLORS[t.status] ?? "var(--ink)",
                         fontWeight: 600,
                       }}
                     >
@@ -111,7 +111,7 @@ export default async function AdminHomePage() {
                   <td
                     style={{
                       padding: "10px 12px",
-                      color: "#5B6472",
+                      color: "var(--slate)",
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
@@ -120,7 +120,7 @@ export default async function AdminHomePage() {
                   <td
                     style={{
                       padding: "10px 12px",
-                      color: "#5B6472",
+                      color: "var(--slate)",
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
@@ -135,7 +135,7 @@ export default async function AdminHomePage() {
                     ) : null}{" "}
                     <a
                       href={`/admin/tenants/${t.id}`}
-                      style={{ color: "#1F6F5C", fontSize: 12 }}
+                      style={{ color: "var(--signal)", fontSize: 12 }}
                     >
                       Manage
                     </a>

@@ -13,16 +13,14 @@ export default async function AdminPanelLayout({
     <div
       style={{
         minHeight: "100vh",
-        background: "#FAFAF8",
-        fontFamily:
-          "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-        color: "#161B22",
+        background: "var(--paper)",
+        color: "var(--ink)",
       }}
     >
       <header
         style={{
-          background: "#161B22",
-          color: "#FAFAF8",
+          background: "var(--rail-bg)",
+          color: "var(--rail-fg)",
           padding: "14px 32px",
           fontSize: 15,
           display: "flex",
@@ -31,7 +29,7 @@ export default async function AdminPanelLayout({
         }}
       >
         <span style={{ fontWeight: 600 }}>Digivixo Admin</span>
-        <span style={{ fontSize: 12, color: "#9AA3AF" }}>
+        <span style={{ fontSize: 12, color: "var(--rail-fg-muted)" }}>
           Internal onboarding panel
         </span>
       </header>
