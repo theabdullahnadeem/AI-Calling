@@ -29,8 +29,8 @@ export function SuppressionList({
   return (
     <div
       style={{
-        background: "#FFFFFF",
-        border: "1px solid #E4E4E0",
+        background: "var(--card)",
+        border: "1px solid var(--line)",
         borderRadius: 6,
         padding: 20,
         fontSize: 13,
@@ -45,10 +45,12 @@ export function SuppressionList({
           style={{
             flex: 1,
             padding: "8px 10px",
-            border: "1px solid #C9C9C4",
+            border: "1px solid var(--input-border)",
             borderRadius: 6,
             fontSize: 13,
             fontFamily: "monospace",
+            background: "var(--input-bg)",
+            color: "var(--ink)",
           }}
         />
         <button
@@ -56,8 +58,8 @@ export function SuppressionList({
           disabled={addPending}
           style={{
             padding: "8px 16px",
-            background: "#161B22",
-            color: "#FAFAF8",
+            background: "var(--ink)",
+            color: "var(--on-accent)",
             border: "none",
             borderRadius: 6,
             fontSize: 13,
@@ -68,20 +70,20 @@ export function SuppressionList({
         </button>
       </form>
       {addState.error ? (
-        <p style={{ color: "#B3542C", marginTop: 10, marginBottom: 0 }}>
+        <p style={{ color: "var(--alert)", marginTop: 10, marginBottom: 0 }}>
           {addState.error}
         </p>
       ) : null}
 
       {entries.length === 0 ? (
-        <p style={{ color: "#5B6472", marginTop: 16, marginBottom: 0 }}>
+        <p style={{ color: "var(--slate)", marginTop: 16, marginBottom: 0 }}>
           No suppressed numbers for this tenant yet.
         </p>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
           <tbody>
             {entries.map((entry) => (
-              <tr key={entry.id} style={{ borderTop: "1px solid #F0F0EC" }}>
+              <tr key={entry.id} style={{ borderTop: "1px solid var(--line-soft)" }}>
                 <td
                   style={{
                     padding: "8px 0",
@@ -91,7 +93,7 @@ export function SuppressionList({
                 >
                   {entry.phoneNumber}
                 </td>
-                <td style={{ padding: "8px 0", color: "#5B6472" }}>
+                <td style={{ padding: "8px 0", color: "var(--slate)" }}>
                   added {entry.addedAt.slice(0, 10)}
                 </td>
                 <td style={{ padding: "8px 0", textAlign: "right" }}>
@@ -103,9 +105,9 @@ export function SuppressionList({
                       disabled={removePending}
                       style={{
                         padding: "4px 12px",
-                        background: "#FFFFFF",
-                        color: "#B3542C",
-                        border: "1px solid #E4E4E0",
+                        background: "var(--card)",
+                        color: "var(--alert)",
+                        border: "1px solid var(--line)",
                         borderRadius: 6,
                         fontSize: 12,
                         cursor: removePending ? "default" : "pointer",

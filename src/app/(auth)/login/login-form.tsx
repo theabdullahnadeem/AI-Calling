@@ -32,72 +32,30 @@ export function LoginForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        width: 360,
-        padding: 32,
-        background: "#FFFFFF",
-        border: "1px solid #E4E4E0",
-        borderRadius: 6,
-        fontFamily:
-          "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-        color: "#161B22",
-      }}
-    >
-      <h1 style={{ fontSize: 20, margin: "0 0 24px" }}>Log in to Digivixo</h1>
-      <label style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
-        Email
-      </label>
+    <form onSubmit={handleSubmit} className="ui-card">
+      <h1 className="ui-title">Log in to Digivixo</h1>
+      <label className="ui-label">Email</label>
       <input
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
         autoComplete="email"
-        style={inputStyle}
+        className="ui-input"
       />
-      <label style={{ display: "block", fontSize: 13, margin: "16px 0 4px" }}>
-        Password
-      </label>
+      <label className="ui-label">Password</label>
       <input
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
         autoComplete="current-password"
-        style={inputStyle}
+        className="ui-input"
       />
-      {error ? (
-        <p style={{ color: "#B3542C", fontSize: 13, marginTop: 12 }}>{error}</p>
-      ) : null}
-      <button
-        type="submit"
-        disabled={pending}
-        style={{
-          marginTop: 24,
-          width: "100%",
-          padding: "10px 0",
-          background: "#1F6F5C",
-          color: "#FAFAF8",
-          border: "none",
-          borderRadius: 6,
-          fontSize: 14,
-          cursor: pending ? "default" : "pointer",
-          opacity: pending ? 0.7 : 1,
-        }}
-      >
+      {error ? <p className="ui-error">{error}</p> : null}
+      <button type="submit" disabled={pending} className="ui-btn-primary">
         {pending ? "Logging in…" : "Log in"}
       </button>
     </form>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 10px",
-  border: "1px solid #C9C9C4",
-  borderRadius: 6,
-  fontSize: 14,
-  boxSizing: "border-box",
-};

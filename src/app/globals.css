@@ -4,17 +4,64 @@
    6px radius, one piece of motion (the live-call pulse). Nothing decorative.
    ======================================================================== */
 
-:root {
-  --ink: #161b22;
-  --paper: #fafaf8;
-  --slate: #5b6472;
-  --signal: #1f6f5c;
-  --alert: #b3542c;
+/* ---------------------------------------------------------------------------
+   Theme tokens. The five named brand colors keep their meaning across themes;
+   surfaces and text flip. `data-theme` on <html> selects the theme (set before
+   paint by the inline script in layout.tsx, so there is no flash). Semantic
+   extras (--rail-*, --input-bg, --overlay) exist because a few surfaces — the
+   nav rail, the admin header — are "always dark" chrome and must not simply
+   invert to light in dark mode.
+   ------------------------------------------------------------------------- */
+:root,
+:root[data-theme="light"] {
+  --ink: #161b22; /* primary text */
+  --paper: #fafaf8; /* page background */
+  --slate: #5b6472; /* secondary text */
+  --signal: #1f6f5c; /* accent */
+  --alert: #b3542c; /* attention */
 
-  --card: #ffffff;
-  --line: #e4e4e0;
-  --line-soft: #f0f0ec;
+  --card: #ffffff; /* card / panel surface */
+  --line: #e4e4e0; /* border */
+  --line-soft: #f0f0ec; /* hairline */
+
+  --rail-bg: #161b22; /* dark chrome (nav rail, admin header) */
+  --rail-fg: #fafaf8;
+  --rail-fg-muted: #9aa3af;
+  --rail-hover: rgba(250, 250, 248, 0.08);
+
+  --input-bg: #ffffff;
+  --input-border: #c9c9c4;
+  --on-accent: #fafaf8; /* text on a --signal / colored surface (light in both themes) */
+  --overlay: rgba(22, 27, 34, 0.55);
+  --shadow: 0 1px 2px rgba(22, 27, 34, 0.04);
+
   --radius: 6px;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --ink: #e8eaed; /* light text */
+  --paper: #0f1317; /* dark page background */
+  --slate: #98a1ad; /* muted text (kept readable on dark) */
+  --signal: #34a98b; /* brightened so it holds contrast on dark */
+  --alert: #d3794f;
+
+  --card: #1a1f26; /* elevated dark surface */
+  --line: #2b313a;
+  --line-soft: #232830;
+
+  --rail-bg: #12161b;
+  --rail-fg: #e8eaed;
+  --rail-fg-muted: #8b93a0;
+  --rail-hover: rgba(255, 255, 255, 0.06);
+
+  --input-bg: #12161b;
+  --input-border: #333a44;
+  --on-accent: #fafaf8;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  color-scheme: dark;
 }
 
 * {
@@ -37,6 +84,53 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Smooth the switch, but never animate it on first paint or for users who
+   prefer reduced motion. */
+body,
+.dv-card,
+.dv-billing,
+.dv-table-wrap,
+.dv-modal,
+.mk-card,
+.mk-price,
+.mk-stat {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+/* ---- theme toggle (fixed, present app-wide via root layout) ------------- */
+
+.theme-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.theme-toggle:hover {
+  border-color: var(--signal);
+}
+
 /* ---- shell: rail + main ------------------------------------------------- */
 
 .dv-shell {
@@ -46,8 +140,8 @@ body {
 }
 
 .dv-rail {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--rail-bg);
+  color: var(--rail-fg);
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
@@ -66,7 +160,7 @@ body {
 }
 
 .dv-rail-link {
-  color: #9aa3af;
+  color: var(--rail-fg-muted);
   text-decoration: none;
   font-size: 13px;
   padding: 8px;
@@ -77,8 +171,8 @@ body {
 }
 
 .dv-rail-link:hover {
-  background: rgba(250, 250, 248, 0.08);
-  color: var(--paper);
+  background: var(--rail-hover);
+  color: var(--rail-fg);
 }
 
 .dv-rail-footer {
@@ -359,8 +453,8 @@ body {
   font: inherit;
   font-size: 13px;
   color: var(--ink);
-  background: var(--card);
-  border: 1px solid var(--line);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius);
   padding: 7px 10px;
 }
@@ -408,7 +502,7 @@ body {
 .dv-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(22, 27, 34, 0.55);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -544,11 +638,11 @@ body {
 .mk-btn--primary {
   background: var(--signal);
   border-color: var(--signal);
-  color: var(--paper);
+  color: var(--on-accent);
 }
 
 .mk-btn--primary:hover {
-  background: #1a5d4d;
+  filter: brightness(0.92);
 }
 
 /* ---- hero: opens straight into the proposition, no gradient, no image ---- */
@@ -909,4 +1003,110 @@ body {
   .mk-preview-row > :nth-child(4) {
     display: none;
   }
+}
+
+/* ===========================================================================
+   Shared auth + admin form primitives (`ui-` prefix). Introduced with dark
+   mode: the login / set-password / admin pages were built with inline hex
+   colors that could not theme. These theme-aware classes replace them.
+   ======================================================================== */
+
+.ui-auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--paper);
+}
+
+/* Admin login sits on the dark chrome surface so it reads as "internal". */
+.ui-auth-screen--dark {
+  background: var(--rail-bg);
+}
+
+.ui-card {
+  width: 360px;
+  max-width: 100%;
+  padding: 32px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.ui-title {
+  font-family: var(--font-display), sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 24px;
+}
+
+.ui-label {
+  display: block;
+  font-size: 13px;
+  color: var(--slate);
+  margin-bottom: 4px;
+}
+
+.ui-label + .ui-label {
+  margin-top: 16px;
+}
+
+.ui-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  box-sizing: border-box;
+  background: var(--input-bg);
+  color: var(--ink);
+  font-family: inherit;
+}
+
+.ui-input:focus {
+  outline: 2px solid var(--signal);
+  outline-offset: 0;
+  border-color: var(--signal);
+}
+
+.ui-input--mono {
+  font-family: monospace;
+}
+
+.ui-btn-primary {
+  margin-top: 24px;
+  width: 100%;
+  padding: 10px 0;
+  background: var(--signal);
+  color: var(--on-accent);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ui-btn-primary:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.ui-error {
+  color: var(--alert);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.ui-success {
+  color: var(--signal);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.ui-hint {
+  font-size: 13px;
+  color: var(--slate);
+  margin: 0 0 24px;
 }

@@ -33,10 +33,12 @@ export function AgentIdForm({
         style={{
           width: 150,
           padding: "4px 8px",
-          border: "1px solid #C9C9C4",
+          border: "1px solid var(--input-border)",
           borderRadius: 6,
           fontSize: 12,
           fontFamily: "monospace",
+          background: "var(--input-bg)",
+          color: "var(--ink)",
         }}
       />
       <button
@@ -44,9 +46,9 @@ export function AgentIdForm({
         disabled={pending}
         style={{
           padding: "4px 10px",
-          background: "#FFFFFF",
-          color: "#161B22",
-          border: "1px solid #C9C9C4",
+          background: "var(--card)",
+          color: "var(--ink)",
+          border: "1px solid var(--input-border)",
           borderRadius: 6,
           fontSize: 12,
           cursor: pending ? "default" : "pointer",
@@ -55,12 +57,12 @@ export function AgentIdForm({
         {pending ? "…" : "Save"}
       </button>
       {state.error ? (
-        <span style={{ color: "#B3542C", fontSize: 11, alignSelf: "center" }}>
+        <span style={{ color: "var(--alert)", fontSize: 11, alignSelf: "center" }}>
           {state.error}
         </span>
       ) : null}
       {state.ok ? (
-        <span style={{ color: "#1F6F5C", fontSize: 11, alignSelf: "center" }}>
+        <span style={{ color: "var(--signal)", fontSize: 11, alignSelf: "center" }}>
           Saved
         </span>
       ) : null}

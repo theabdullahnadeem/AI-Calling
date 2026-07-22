@@ -24,8 +24,8 @@ export function ComplianceForm({
     <form
       action={formAction}
       style={{
-        background: "#FFFFFF",
-        border: "1px solid #E4E4E0",
+        background: "var(--card)",
+        border: "1px solid var(--line)",
         borderRadius: 6,
         padding: 20,
         fontSize: 13,
@@ -53,18 +53,20 @@ export function ComplianceForm({
             width: "100%",
             marginTop: 4,
             padding: "8px 10px",
-            border: "1px solid #C9C9C4",
+            border: "1px solid var(--input-border)",
             borderRadius: 6,
             fontSize: 13,
             boxSizing: "border-box",
+            background: "var(--input-bg)",
+            color: "var(--ink)",
           }}
         />
       </label>
       {state.error ? (
-        <p style={{ color: "#B3542C", marginTop: 12 }}>{state.error}</p>
+        <p style={{ color: "var(--alert)", marginTop: 12 }}>{state.error}</p>
       ) : null}
       {state.ok ? (
-        <p style={{ color: "#1F6F5C", marginTop: 12 }}>Saved.</p>
+        <p style={{ color: "var(--signal)", marginTop: 12 }}>Saved.</p>
       ) : null}
       <button
         type="submit"
@@ -72,8 +74,8 @@ export function ComplianceForm({
         style={{
           marginTop: 16,
           padding: "8px 20px",
-          background: "#1F6F5C",
-          color: "#FAFAF8",
+          background: "var(--signal)",
+          color: "var(--on-accent)",
           border: "none",
           borderRadius: 6,
           fontSize: 13,

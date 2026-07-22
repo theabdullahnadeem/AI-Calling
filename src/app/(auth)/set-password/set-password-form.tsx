@@ -58,24 +58,15 @@ export function SetPasswordForm({ token }: { token: string }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        width: 360,
-        padding: 32,
-        background: "#FFFFFF",
-        border: "1px solid #E4E4E0",
-        borderRadius: 6,
-        color: "#161B22",
-      }}
-    >
-      <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>Set your password</h1>
-      <p style={{ fontSize: 13, color: "#5B6472", margin: "0 0 24px" }}>
-        At least 12 characters. A password manager's suggestion works well.
+    <form onSubmit={handleSubmit} className="ui-card">
+      <h1 className="ui-title" style={{ marginBottom: 8 }}>
+        Set your password
+      </h1>
+      <p className="ui-hint">
+        At least 12 characters. A password manager&apos;s suggestion works
+        well.
       </p>
-      <label style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
-        New password
-      </label>
+      <label className="ui-label">New password</label>
       <input
         type="password"
         value={password}
@@ -84,49 +75,21 @@ export function SetPasswordForm({ token }: { token: string }) {
         minLength={12}
         maxLength={128}
         autoComplete="new-password"
-        style={inputStyle}
+        className="ui-input"
       />
-      <label style={{ display: "block", fontSize: 13, margin: "16px 0 4px" }}>
-        Confirm password
-      </label>
+      <label className="ui-label">Confirm password</label>
       <input
         type="password"
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
         required
         autoComplete="new-password"
-        style={inputStyle}
+        className="ui-input"
       />
-      {error ? (
-        <p style={{ color: "#B3542C", fontSize: 13, marginTop: 12 }}>{error}</p>
-      ) : null}
-      <button
-        type="submit"
-        disabled={pending}
-        style={{
-          marginTop: 24,
-          width: "100%",
-          padding: "10px 0",
-          background: "#1F6F5C",
-          color: "#FAFAF8",
-          border: "none",
-          borderRadius: 6,
-          fontSize: 14,
-          cursor: pending ? "default" : "pointer",
-          opacity: pending ? 0.7 : 1,
-        }}
-      >
+      {error ? <p className="ui-error">{error}</p> : null}
+      <button type="submit" disabled={pending} className="ui-btn-primary">
         {pending ? "Saving…" : "Save password and log in"}
       </button>
     </form>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 10px",
-  border: "1px solid #C9C9C4",
-  borderRadius: 6,
-  fontSize: 14,
-  boxSizing: "border-box",
-};
