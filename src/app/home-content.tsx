@@ -1,7 +1,6 @@
 "use client";
 
 import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useEffect, useRef } from "react";
 
 import { OVERAGE_RATE_PER_MINUTE_USD, TIER_PRICING } from "@/lib/pricing";
@@ -65,18 +64,101 @@ export function HomeContent() {
   useEffect(() => {
     const scope = root.current;
     if (!scope) return;
+    const q = (sel: string) =>
+      Array.from(scope.querySelectorAll<HTMLElement>(sel));
 
-    // Reduced motion: CSS already keeps everything visible and the counters
-    // already show their final values in the DOM. Do nothing.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
 
-    gsap.registerPlugin(ScrollTrigger);
+    // Nav border once scrolled off the top — plain scroll listener.
+    const nav = q(".mk-nav")[0];
+    const onScroll = () =>
+      nav?.classList.toggle("mk-nav--scrolled", window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
 
+    const reveals = q(".reveal");
+    const counters = q("[data-count-to]");
+
+    const runCounter = (node: HTMLElement) => {
+      if (node.dataset.counted) return;
+      node.dataset.counted = "1";
+      const to = Number(node.dataset.countTo);
+      const from = Number(node.dataset.countFrom ?? "0");
+      const prefix = node.dataset.countPrefix ?? "";
+      const suffix = node.dataset.countSuffix ?? "";
+      const setFinal = () => {
+        node.textContent = `${prefix}${to}${suffix}`;
+      };
+      // requestAnimationFrame is paused in a background tab; if it never
+      // starts, land on the final value so the number is never stuck.
+      const start = performance.now();
+      const dur = 1300;
+      const frame = (t: number) => {
+        const p = Math.min(1, (t - start) / dur);
+        const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        node.textContent = `${prefix}${Math.round(from + (to - from) * eased)}${suffix}`;
+        if (p < 1) requestAnimationFrame(frame);
+      };
+      if (document.hidden) setFinal();
+      else requestAnimationFrame(frame);
+    };
+
+    const revealAll = () => {
+      // Hard guarantee: set the final state with the transition disabled, so
+      // visibility can't be left frozen mid-animation under any circumstance.
+      reveals.forEach((el) => {
+        el.style.transition = "none";
+        el.style.opacity = "1";
+        el.style.transform = "none";
+        el.classList.add("is-in");
+      });
+      counters.forEach(runCounter);
+    };
+
+    // Reduced motion: just show everything at its final state.
+    if (reduce) {
+      reveals.forEach((el) => el.classList.add("is-in"));
+      return () => window.removeEventListener("scroll", onScroll);
+    }
+
+    // Hold counters at their start value until they scroll into view.
+    counters.forEach((node) => {
+      const prefix = node.dataset.countPrefix ?? "";
+      const suffix = node.dataset.countSuffix ?? "";
+      node.textContent = `${prefix}${node.dataset.countFrom ?? "0"}${suffix}`;
+    });
+
+    // Reveal on scroll — IntersectionObserver is reliable and needs no
+    // library scroll math. Each element reveals once, then is unobserved.
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target as HTMLElement;
+          el.classList.add("is-in");
+          if (el.dataset.countTo) runCounter(el);
+          io.unobserve(el);
+        });
+      },
+      { threshold: 0.2, rootMargin: "0px 0px -6% 0px" },
+    );
+
+    reveals.forEach((el) => io.observe(el));
+    // Counters that aren't themselves .reveal (e.g. nested in a card).
+    counters.forEach((el) => {
+      if (!el.classList.contains("reveal")) io.observe(el);
+    });
+
+    // Safety net: whatever the scroll position or IntersectionObserver
+    // support, nothing stays invisible. After a short grace period reveal
+    // anything still hidden. setTimeout fires even in a background tab, so
+    // content can never get stuck — the failure mode we will not repeat.
+    const safety = window.setTimeout(revealAll, 2200);
+
+    // Hero headline + equalizer run on load (no scroll dependency).
     const ctx = gsap.context(() => {
-      const q = (sel: string) =>
-        Array.from(scope.querySelectorAll<HTMLElement>(sel));
-
-      // Hero headline — word-by-word rise (runs on load, no scroll trigger).
       gsap.fromTo(
         q(".mk-hero-word"),
         { yPercent: 60, opacity: 0 },
@@ -90,41 +172,6 @@ export function HomeContent() {
         },
       );
 
-      // Scroll-revealed blocks.
-      q(".reveal").forEach((node) => {
-        gsap.fromTo(
-          node,
-          { y: 28, opacity: 0 },
-          {
-            y: 0,
-            opacity: 1,
-            duration: 0.8,
-            ease: "power2.out",
-            scrollTrigger: { trigger: node, start: "top 90%", once: true },
-          },
-        );
-      });
-
-      // Count-up stats.
-      q("[data-count-to]").forEach((node) => {
-        const to = Number(node.dataset.countTo);
-        const from = Number(node.dataset.countFrom ?? "0");
-        const prefix = node.dataset.countPrefix ?? "";
-        const suffix = node.dataset.countSuffix ?? "";
-        const obj = { v: from };
-        node.textContent = `${prefix}${Math.round(from)}${suffix}`;
-        gsap.to(obj, {
-          v: to,
-          duration: 1.4,
-          ease: "power2.out",
-          scrollTrigger: { trigger: node, start: "top 90%", once: true },
-          onUpdate: () => {
-            node.textContent = `${prefix}${Math.round(obj.v)}${suffix}`;
-          },
-        });
-      });
-
-      // Hero equalizer — each bar breathes on its own loop, like live audio.
       q(".mk-eq span").forEach((bar, i) => {
         gsap.to(bar, {
           scaleY: 0.35 + ((i * 7) % 5) * 0.09,
@@ -136,26 +183,12 @@ export function HomeContent() {
           delay: (i % 6) * 0.08,
         });
       });
-
-      // Nav border once scrolled off the top.
-      const nav = q(".mk-nav")[0];
-      if (nav) {
-        ScrollTrigger.create({
-          trigger: document.body,
-          start: "top top",
-          end: "bottom bottom",
-          onUpdate: (s) =>
-            nav.classList.toggle("mk-nav--scrolled", s.scroll() > 8),
-        });
-      }
     }, scope);
 
-    // Positions may be measured before fonts/layout settle; recompute after
-    // the first painted frame so above-the-fold triggers fire correctly.
-    const raf = requestAnimationFrame(() => ScrollTrigger.refresh());
-
     return () => {
-      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.clearTimeout(safety);
+      io.disconnect();
       ctx.revert();
     };
   }, []);
