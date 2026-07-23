@@ -1,5 +1,10 @@
+import { eq } from "drizzle-orm";
+
+import { auth } from "@/auth";
+import { db, tenants } from "@/db";
 import { appRouter } from "@/server";
 import { createTrpcContext } from "@/server/context";
+import { getTenantBrand } from "@/lib/branding";
 import {
   formatDate,
   formatDateTime,
@@ -7,7 +12,6 @@ import {
   tierLabel,
 } from "@/lib/format";
 import { parseIntakeSchema } from "@/lib/intake";
-import { SUPPORT_EMAIL } from "@/lib/support";
 import { CallLog } from "./call-log";
 import { PerformanceCards } from "./performance-cards";
 import { RailIcon, SignOutButton } from "./signout-button";
@@ -42,6 +46,20 @@ export default async function DashboardPage() {
       error instanceof Error &&
       error.message === "SUBSCRIPTION_SUSPENDED"
     ) {
+      // The tRPC call died before `me` existed, so resolve the brand from
+      // the session directly — a partner's client must see THEIR support
+      // contact here, not ours.
+      const session = await auth();
+      const [tenantRow] = session?.user?.tenantId
+        ? await db
+            .select({ partnerId: tenants.partnerId })
+            .from(tenants)
+            .where(eq(tenants.id, session.user.tenantId))
+            .limit(1)
+        : [];
+      const suspendedBrand = await getTenantBrand({
+        partnerId: tenantRow?.partnerId ?? null,
+      });
       return (
         <main
           style={{
@@ -63,9 +81,12 @@ export default async function DashboardPage() {
               Dashboard access is paused
             </h1>
             <p style={{ fontSize: 14, color: "var(--slate)", lineHeight: 1.6 }}>
-              Access was revoked after an unresolved payment. Contact us at{" "}
-              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> to
-              restore your subscription — your call data is safe.
+              Access was revoked after an unresolved payment. Contact{" "}
+              {suspendedBrand.name} at{" "}
+              <a href={`mailto:${suspendedBrand.supportEmail}`}>
+                {suspendedBrand.supportEmail}
+              </a>{" "}
+              to restore your service — your call data is safe.
             </p>
           </div>
         </main>
@@ -79,11 +100,30 @@ export default async function DashboardPage() {
   const intakeConfig = parseIntakeSchema(me.intakeSchema);
   const intakeColumns = intakeConfig.fields ?? [];
   const overdue = billing.hasSubscription && billing.status === "payment_overdue";
+  // White-label v1: partner-owned tenants render their partner's brand —
+  // rail identity, support contacts, optional accent — and never see the
+  // wholesale dollar amounts (the partner bills them at their own rates).
+  const brand = me.brand;
+  const supportEmail = brand.supportEmail;
+  const accentOverride = brand.accentColor
+    ? ({ "--signal": brand.accentColor } as React.CSSProperties)
+    : undefined;
 
   return (
-    <div className="dv-shell">
+    <div className="dv-shell" style={accentOverride}>
       <nav className="dv-rail">
-        <div className="dv-rail-brand">Digivixo</div>
+        <div className="dv-rail-brand">
+          {brand.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- short-lived presigned URL
+            <img
+              src={brand.logoUrl}
+              alt={brand.name}
+              style={{ maxHeight: 26, maxWidth: 150, display: "block" }}
+            />
+          ) : (
+            brand.name
+          )}
+        </div>
         <a className="dv-rail-link" href="#overview">
           <RailIcon path="M3 3h6v6H3zM11 3h6v6h-6zM3 11h6v6H3zM11 11h6v6h-6z" />
           Overview
@@ -122,25 +162,32 @@ export default async function DashboardPage() {
         {overdue ? (
           <div className="dv-banner">
             <span>
-              Payment failed — please resolve within 3 days or dashboard access
-              will be suspended.
-              {billing.graceEndsAt
-                ? ` Access pauses ${formatDateTime(billing.graceEndsAt)}.`
-                : ""}
+              {brand.isPartner
+                ? `There's a billing issue on this account — service pauses if it isn't resolved. Contact ${brand.name} to sort it out.`
+                : `Payment failed — please resolve within 3 days or dashboard access will be suspended.${
+                    billing.graceEndsAt
+                      ? ` Access pauses ${formatDateTime(billing.graceEndsAt)}.`
+                      : ""
+                  }`}
             </span>
             <span className="dv-banner-actions">
+              {/* Partner clients get no Retry Payment: the Polar customer on
+                  their subscription is the PARTNER, who resolves it from the
+                  partner panel. Their CTA is the partner's support inbox. */}
+              {!brand.isPartner ? (
+                <a
+                  className="dv-btn dv-btn--banner"
+                  href={
+                    billing.customerPortalUrl ??
+                    `mailto:${supportEmail}?subject=Retry%20payment%20for%20${encodeURIComponent(me.name)}`
+                  }
+                >
+                  Retry Payment
+                </a>
+              ) : null}
               <a
                 className="dv-btn dv-btn--banner"
-                href={
-                  billing.customerPortalUrl ??
-                  `mailto:${SUPPORT_EMAIL}?subject=Retry%20payment%20for%20${encodeURIComponent(me.name)}`
-                }
-              >
-                Retry Payment
-              </a>
-              <a
-                className="dv-btn dv-btn--banner"
-                href={`mailto:${SUPPORT_EMAIL}?subject=Billing%20issue%20for%20${encodeURIComponent(me.name)}`}
+                href={`mailto:${supportEmail}?subject=Billing%20issue%20for%20${encodeURIComponent(me.name)}`}
               >
                 Report an Issue
               </a>
@@ -162,7 +209,11 @@ export default async function DashboardPage() {
               <>
                 <div className="dv-billing-row">
                   <strong>
-                    {tierLabel(billing.tier)} — ${billing.monthlyPriceUsd}/mo
+                    {/* Partner clients see their plan and minutes, never the
+                        wholesale dollar amounts (nulled server-side too). */}
+                    {brand.isPartner || !billing.monthlyPriceUsd
+                      ? `${tierLabel(billing.tier)} plan`
+                      : `${tierLabel(billing.tier)} — $${billing.monthlyPriceUsd}/mo`}
                   </strong>
                   <span className="dv-num" style={{ color: "var(--slate)" }}>
                     {formatNumber(billing.minutesUsed)} /{" "}
@@ -183,7 +234,9 @@ export default async function DashboardPage() {
                 >
                   <span style={{ color: "var(--slate)" }}>
                     {billing.overageMinutes > 0
-                      ? `Overage: ${formatNumber(billing.overageMinutes)} min × $${billing.overageRatePerMinuteUsd}/min`
+                      ? brand.isPartner || !billing.overageRatePerMinuteUsd
+                        ? `Overage: ${formatNumber(billing.overageMinutes)} min this period`
+                        : `Overage: ${formatNumber(billing.overageMinutes)} min × $${billing.overageRatePerMinuteUsd}/min`
                       : "No overage this period"}
                   </span>
                   <span style={{ color: "var(--slate)" }} suppressHydrationWarning>
@@ -193,8 +246,8 @@ export default async function DashboardPage() {
               </>
             ) : (
               <span style={{ color: "var(--slate)", fontSize: 13 }}>
-                Billing is managed by Digivixo — your subscription details will
-                appear here once billing is connected.
+                Billing is managed by {brand.name} — your subscription details
+                will appear here once billing is connected.
               </span>
             )}
           </div>

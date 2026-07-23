@@ -1,7 +1,7 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { auth } from "@/auth";
-import { db, tenants } from "@/db";
+import { db, partners, tenants } from "@/db";
 import { AgentIdForm } from "./agent-id-form";
 import { CreateTenantForm } from "./create-tenant-form";
 import { SendLinkButton } from "./send-link-button";
@@ -31,8 +31,9 @@ export default async function AdminHomePage() {
   const showPricing = session?.user?.role === "admin";
 
   const rows = await db
-    .select()
+    .select({ tenant: tenants, partnerName: partners.name })
     .from(tenants)
+    .leftJoin(partners, eq(tenants.partnerId, partners.id))
     .orderBy(desc(tenants.createdAt));
 
   return (
@@ -56,6 +57,7 @@ export default async function AdminHomePage() {
                 "Business",
                 "Slug",
                 "Type",
+                "Partner",
                 "Tier",
                 "Status",
                 "Retell agent",
@@ -80,14 +82,14 @@ export default async function AdminHomePage() {
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={10}
                   style={{ padding: "24px 12px", color: "var(--slate)" }}
                 >
                   No tenants yet — create the first one below.
                 </td>
               </tr>
             ) : (
-              rows.map((t) => (
+              rows.map(({ tenant: t, partnerName }) => (
                 <tr key={t.id} style={{ borderBottom: "1px solid var(--line-soft)" }}>
                   <td style={{ padding: "10px 12px", fontWeight: 500 }}>
                     {t.name}
@@ -96,6 +98,9 @@ export default async function AdminHomePage() {
                     {t.slug}
                   </td>
                   <td style={{ padding: "10px 12px" }}>{t.businessType}</td>
+                  <td style={{ padding: "10px 12px", color: "var(--slate)" }}>
+                    {partnerName ?? "—"}
+                  </td>
                   <td style={{ padding: "10px 12px" }}>
                     {t.selectedTier ?? "—"}
                   </td>
@@ -134,7 +139,9 @@ export default async function AdminHomePage() {
                     {formatDate(t.createdAt)}
                   </td>
                   <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                    {t.status === "pending_payment" ? (
+                    {/* Partner-owned tenants are paid by their partner from
+                        /partner — never email their end client a checkout. */}
+                    {t.status === "pending_payment" && !t.partnerId ? (
                       <SendLinkButton
                         tenantId={t.id}
                         alreadySent={t.paymentLinkSentAt !== null}

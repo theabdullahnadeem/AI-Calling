@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { auth } from "@/auth";
 import { db, tenants } from "@/db";
+import { getTenantBrand } from "@/lib/branding";
 
 /**
  * Authoritative server-side gate for everything under /org/[tenantSlug].
@@ -40,6 +41,9 @@ export default async function OrgLayout({
   if (!tenant || tenant.slug !== tenantSlug) forbidden();
 
   if (tenant.status === "suspended") {
+    // White-label: a partner's client is pointed at the PARTNER's support
+    // inbox, never ours.
+    const brand = await getTenantBrand(tenant);
     return (
       <main
         style={{
@@ -57,9 +61,10 @@ export default async function OrgLayout({
             Dashboard access is paused
           </h1>
           <p style={{ fontSize: 14, color: "var(--slate)", lineHeight: 1.6 }}>
-            Your account is suspended. Contact us to resolve billing and
-            restore access — your call data is safe and will be here when
-            you&apos;re back.
+            Your account is suspended. Contact {brand.name} at{" "}
+            <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>{" "}
+            to resolve billing and restore access — your call data is safe
+            and will be here when you&apos;re back.
           </p>
         </div>
       </main>

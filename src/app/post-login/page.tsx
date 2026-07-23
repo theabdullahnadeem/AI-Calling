@@ -13,6 +13,7 @@ export default async function PostLoginPage() {
   if (session.user.role === "admin" || session.user.role === "staff_admin") {
     redirect("/admin");
   }
+  if (session.user.role === "partner_admin") redirect("/partner");
   if (session.user.tenantSlug) {
     redirect(`/org/${session.user.tenantSlug}/dashboard`);
   }

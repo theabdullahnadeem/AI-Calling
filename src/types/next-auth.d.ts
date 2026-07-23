@@ -3,7 +3,11 @@ import type { DefaultSession } from "next-auth";
 // without it the JWT interface merge below silently doesn't apply.
 import type {} from "next-auth/jwt";
 
-export type SessionRole = "tenant_owner" | "admin" | "staff_admin";
+export type SessionRole =
+  | "tenant_owner"
+  | "admin"
+  | "staff_admin"
+  | "partner_admin";
 
 declare module "next-auth" {
   interface Session {
@@ -12,6 +16,7 @@ declare module "next-auth" {
       role: SessionRole;
       tenantId: string | null;
       tenantSlug: string | null;
+      partnerId: string | null;
     } & DefaultSession["user"];
   }
 
@@ -19,6 +24,7 @@ declare module "next-auth" {
     role: SessionRole;
     tenantId: string | null;
     tenantSlug: string | null;
+    partnerId: string | null;
   }
 }
 
@@ -28,5 +34,6 @@ declare module "next-auth/jwt" {
     role: SessionRole;
     tenantId: string | null;
     tenantSlug: string | null;
+    partnerId: string | null;
   }
 }

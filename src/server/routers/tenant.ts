@@ -40,13 +40,20 @@ const callFilterSchema = z
  * so another tenant's id returns nothing, not something.
  */
 export const tenantRouter = router({
-  me: protectedTenantProcedure.query(({ ctx }) => ({
-    name: ctx.tenant.name,
-    slug: ctx.tenant.slug,
-    businessType: ctx.tenant.businessType,
-    status: ctx.tenant.status,
-    intakeSchema: ctx.tenant.intakeSchema,
-  })),
+  me: protectedTenantProcedure.query(async ({ ctx }) => {
+    // White-label v1: a partner-owned tenant renders under its partner's
+    // brand — name, logo, support contact, accent — Digivixo otherwise.
+    const { getTenantBrand } = await import("@/lib/branding");
+    const brand = await getTenantBrand(ctx.tenant);
+    return {
+      name: ctx.tenant.name,
+      slug: ctx.tenant.slug,
+      businessType: ctx.tenant.businessType,
+      status: ctx.tenant.status,
+      intakeSchema: ctx.tenant.intakeSchema,
+      brand,
+    };
+  }),
 
   /** Performance cards — this billing period. */
   overview: protectedTenantProcedure.query(async ({ ctx }) => {
@@ -110,8 +117,17 @@ export const tenantRouter = router({
     // Retry Payment goes to Polar's hosted customer portal (card update +
     // retry live there — we never touch payment details). Session links are
     // short-lived, so mint one per dashboard load, only when it's needed.
+    //
+    // NEVER for partner-owned tenants: their subscription's Polar customer
+    // is the PARTNER — a portal session here would hand the end client the
+    // partner's billing (card, receipts, wholesale prices). The partner
+    // resolves payment from /partner instead.
     let customerPortalUrl: string | null = null;
-    if (sub.status === "payment_overdue" && sub.polarCustomerId) {
+    if (
+      sub.status === "payment_overdue" &&
+      sub.polarCustomerId &&
+      !ctx.tenant.partnerId
+    ) {
       try {
         const { polarClient } = await import("@/lib/polar");
         const session = await polarClient().customerSessions.create({
@@ -133,8 +149,13 @@ export const tenantRouter = router({
       minuteCap: sub.minuteCap,
       minutesUsed: sub.minutesUsedThisCycle,
       overageMinutes,
-      overageRatePerMinuteUsd: sub.overageRatePerMinuteUsd,
-      monthlyPriceUsd: sub.monthlyPriceUsd,
+      // Dollar amounts are the WHOLESALE prices the partner pays us — a
+      // partner's end client must never see them (they pay the partner, at
+      // the partner's own rates). Nulled server-side, not just hidden in UI.
+      overageRatePerMinuteUsd: ctx.tenant.partnerId
+        ? null
+        : sub.overageRatePerMinuteUsd,
+      monthlyPriceUsd: ctx.tenant.partnerId ? null : sub.monthlyPriceUsd,
       currentPeriodEnd: sub.currentPeriodEnd.toISOString(),
       overdueSince: sub.overdueSince?.toISOString() ?? null,
       // 3-day grace window countdown for the banner; the daily job (and the

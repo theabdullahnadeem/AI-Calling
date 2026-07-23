@@ -43,6 +43,13 @@
       "when": 1784823119445,
       "tag": "0005_omniscient_cyclops",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784824316110,
+      "tag": "0006_tiresome_absorbing_man",
+      "breakpoints": true
     }
   ]
 }

@@ -76,11 +76,44 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
 // 'admin' is the super-admin (full panel incl. money + staff management);
 // 'staff_admin' runs day-to-day onboarding (create tenants, send payment
 // links, map agents, set intake) but never sees dollar amounts or invoices.
+// 'partner_admin' belongs to a white-label partner: manages that partner's
+// client tenants from /partner and pays to activate them.
 export const userRoleEnum = pgEnum("user_role", [
   "tenant_owner",
   "admin",
   "staff_admin",
+  "partner_admin",
 ]);
+
+// ---------------------------------------------------------------------------
+// partners — white-label resellers (v1: per-client fee + branding only)
+//
+// A partner resells the platform under their own brand at their own retail
+// prices, collected from their end clients OFF-platform. The partner pays US
+// monthly per client at the standard tier prices (they are simply the Polar
+// payer on their clients' checkouts). Branding here renders on their
+// clients' dashboards and email display names.
+// ---------------------------------------------------------------------------
+
+export const partners = pgTable("partners", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  // The brand their clients see — rail logo text, email display name.
+  name: varchar("name", { length: 256 }).notNull(),
+  // Client-facing support inbox: rendered on their clients' overdue banners
+  // and suspended screens INSTEAD of our support address.
+  supportEmail: varchar("support_email", { length: 256 }).notNull(),
+  // Where the partner receives Polar receipts for per-client subscriptions —
+  // used as customerEmail on partner-paid checkouts.
+  billingEmail: varchar("billing_email", { length: 256 }).notNull(),
+  // R2 object KEY (not a URL — the bucket is private; the dashboard mints a
+  // short-lived presigned URL per load, same pattern as call recordings).
+  logoKey: varchar("logo_key", { length: 256 }),
+  // Optional hex color swapped in for --signal on their clients' dashboards.
+  accentColor: varchar("accent_color", { length: 16 }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
 
 // ---------------------------------------------------------------------------
 // tenants
@@ -120,6 +153,12 @@ export const tenants = pgTable(
     paymentLinkSentAt: timestamp("payment_link_sent_at", {
       withTimezone: true,
     }),
+    // Set when this tenant belongs to a white-label partner: the partner
+    // created it, pays for it, and their branding renders on its dashboard.
+    // Null = a direct Digivixo tenant; nothing else changes for those.
+    partnerId: varchar("partner_id", { length: 64 }).references(
+      () => partners.id,
+    ),
     // SPEC ADDITION (flagged in PR): Retell webhooks identify calls only by
     // agent_id, so tenant attribution needs this mapping. Set in the admin
     // panel once the agent is configured in Retell's dashboard (docs/02 §1).
@@ -143,6 +182,7 @@ export const tenants = pgTable(
   (t) => [
     uniqueIndex("tenants_slug_idx").on(t.slug),
     uniqueIndex("tenants_retell_agent_id_idx").on(t.retellAgentId),
+    index("tenants_partner_id_idx").on(t.partnerId),
   ],
 );
 
@@ -375,6 +415,11 @@ export const users = pgTable(
     // every tenant_owner row still requires a tenant, exactly as the spec
     // intends.
     tenantId: varchar("tenant_id", { length: 64 }).references(() => tenants.id),
+    // Set ONLY for role 'partner_admin' — scopes the /partner panel exactly
+    // the way tenantId scopes /org for tenant owners.
+    partnerId: varchar("partner_id", { length: 64 }).references(
+      () => partners.id,
+    ),
     // Always stored lowercased — normalize at every app boundary before
     // insert or lookup.
     email: varchar("email", { length: 256 }).notNull(),
@@ -395,13 +440,16 @@ export const users = pgTable(
   (t) => [
     uniqueIndex("users_email_idx").on(t.email),
     index("users_tenant_id_idx").on(t.tenantId),
+    index("users_partner_id_idx").on(t.partnerId),
     check(
       "users_admin_or_tenant_check",
+      // Each role must carry the scope it authorizes: tenant owners a tenant,
+      // partner admins a partner, admin-side roles neither.
       // ::text on purpose: comparing the enum column as text keeps the
-      // migration that adds 'staff_admin' single-file — a CHECK referencing a
+      // migration that adds an enum value single-file — a CHECK referencing a
       // just-added ENUM VALUE in the same transaction is rejected by Postgres
       // ("unsafe use of new value"), the text comparison is not.
-      sql`${t.role}::text IN ('admin', 'staff_admin') OR ${t.tenantId} IS NOT NULL`,
+      sql`${t.role}::text IN ('admin', 'staff_admin') OR (${t.role}::text = 'tenant_owner' AND ${t.tenantId} IS NOT NULL) OR (${t.role}::text = 'partner_admin' AND ${t.partnerId} IS NOT NULL)`,
     ),
   ],
 );
@@ -445,6 +493,8 @@ export const suppressedNumbers = pgTable(
 
 export type Tenant = typeof tenants.$inferSelect;
 export type NewTenant = typeof tenants.$inferInsert;
+export type Partner = typeof partners.$inferSelect;
+export type NewPartner = typeof partners.$inferInsert;
 export type Call = typeof calls.$inferSelect;
 export type NewCall = typeof calls.$inferInsert;
 export type Booking = typeof bookings.$inferSelect;

@@ -313,6 +313,15 @@ export async function sendPaymentLinkAction(
     .limit(1);
 
   if (!tenant) return { ok: false, error: "Tenant not found." };
+  // Partner-owned tenants are paid by their partner from /partner — emailing
+  // the END CLIENT a checkout at OUR retail prices would both leak the
+  // wholesale relationship and bill the wrong party.
+  if (tenant.partnerId) {
+    return {
+      ok: false,
+      error: "This tenant belongs to a partner — the partner pays from their panel.",
+    };
+  }
   if (tenant.status !== "pending_payment") {
     return {
       ok: false,

@@ -50,6 +50,40 @@ export async function putRecordingObject(params: {
   );
 }
 
+/** Partner logo upload (white-label v1) — same private bucket, keyed under partners/. */
+export async function putPartnerLogoObject(params: {
+  objectKey: string;
+  body: Uint8Array;
+  contentType: string;
+}): Promise<void> {
+  await r2Client().send(
+    new PutObjectCommand({
+      Bucket: serverEnv("R2_BUCKET_NAME"),
+      Key: params.objectKey,
+      Body: params.body,
+      ContentType: params.contentType,
+    }),
+  );
+}
+
+/**
+ * Presigned logo URL, minted per dashboard render like recording playback —
+ * the bucket stays private, a stored link is never directly fetchable.
+ */
+export async function getPartnerLogoUrl(
+  objectKey: string,
+  expiresInSeconds = 600,
+): Promise<string> {
+  return getSignedUrl(
+    r2Client(),
+    new GetObjectCommand({
+      Bucket: serverEnv("R2_BUCKET_NAME"),
+      Key: objectKey,
+    }),
+    { expiresIn: expiresInSeconds },
+  );
+}
+
 /** Default 5 minutes — regenerated on each dashboard load, per Prompt 8 §5. */
 export async function getRecordingPlaybackUrl(
   objectKey: string,

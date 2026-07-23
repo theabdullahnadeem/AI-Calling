@@ -72,12 +72,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           tenantSlug = tenant.slug;
         }
 
+        // A partner_admin row must carry its partner scope — a row without
+        // one can't be authorized anywhere, so fail the login outright.
+        if (user.role === "partner_admin" && !user.partnerId) return null;
+
         return {
           id: user.id,
           email: user.email,
           role: user.role,
           tenantId: user.tenantId,
           tenantSlug,
+          partnerId: user.partnerId,
         };
       },
     }),
