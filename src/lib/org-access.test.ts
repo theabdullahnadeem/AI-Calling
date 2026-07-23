@@ -4,6 +4,7 @@ import { evaluateOrgAccess, type SessionInfo } from "./org-access";
 
 const tenantB: SessionInfo = { role: "tenant_owner", tenantSlug: "tenant-b" };
 const admin: SessionInfo = { role: "admin", tenantSlug: null };
+const staff: SessionInfo = { role: "staff_admin", tenantSlug: null };
 
 describe("evaluateOrgAccess — /org tenant scoping", () => {
   // The Prompt 2 required test: authenticated as tenant-b, requesting
@@ -44,6 +45,12 @@ describe("evaluateOrgAccess — /org tenant scoping", () => {
     );
   });
 
+  it("rejects a staff admin browsing tenant dashboards", () => {
+    expect(evaluateOrgAccess(staff, "/org/tenant-a/dashboard")).toBe(
+      "forbidden",
+    );
+  });
+
   it("rejects a session with no slug claim", () => {
     const broken: SessionInfo = { role: "tenant_owner", tenantSlug: null };
     expect(evaluateOrgAccess(broken, "/org/tenant-a/dashboard")).toBe(
@@ -67,5 +74,25 @@ describe("evaluateOrgAccess — /admin", () => {
 
   it("allows the admin in", () => {
     expect(evaluateOrgAccess(admin, "/admin")).toBe("allow");
+  });
+
+  it("allows the admin into staff management", () => {
+    expect(evaluateOrgAccess(admin, "/admin/staff")).toBe("allow");
+  });
+});
+
+describe("evaluateOrgAccess — staff_admin", () => {
+  it("allows staff into the panel and tenant management", () => {
+    expect(evaluateOrgAccess(staff, "/admin")).toBe("allow");
+    expect(evaluateOrgAccess(staff, "/admin/tenants/abc123")).toBe("allow");
+  });
+
+  it("404s staff probing staff management (same as an outsider)", () => {
+    expect(evaluateOrgAccess(staff, "/admin/staff")).toBe("not-found");
+    expect(evaluateOrgAccess(staff, "/admin/staff/anything")).toBe(
+      "not-found",
+    );
+    // Identical decision to a tenant user probing /admin — no existence leak.
+    expect(evaluateOrgAccess(tenantB, "/admin")).toBe("not-found");
   });
 });

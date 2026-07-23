@@ -10,7 +10,7 @@
  */
 
 export type SessionInfo = {
-  role: "tenant_owner" | "admin";
+  role: "tenant_owner" | "admin" | "staff_admin";
   tenantSlug: string | null;
 } | null;
 
@@ -32,8 +32,17 @@ export function evaluateOrgAccess(
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     if (!session) return "admin-login";
+    // The super-admin sees everything, including /admin/staff.
+    if (session.role === "admin") return "allow";
+    // Staff admins run day-to-day onboarding but never staff management —
+    // for them /admin/staff 404s exactly like the panel does for outsiders.
+    if (session.role === "staff_admin") {
+      const isStaffMgmt =
+        pathname === "/admin/staff" || pathname.startsWith("/admin/staff/");
+      return isStaffMgmt ? "not-found" : "allow";
+    }
     // Non-admins get a 404, not a 403 — no confirmation the panel exists.
-    return session.role === "admin" ? "allow" : "not-found";
+    return "not-found";
   }
 
   if (pathname === "/org" || pathname.startsWith("/org/")) {

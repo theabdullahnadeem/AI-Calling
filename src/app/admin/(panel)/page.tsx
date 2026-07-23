@@ -1,5 +1,6 @@
 import { desc } from "drizzle-orm";
 
+import { auth } from "@/auth";
 import { db, tenants } from "@/db";
 import { AgentIdForm } from "./agent-id-form";
 import { CreateTenantForm } from "./create-tenant-form";
@@ -23,6 +24,12 @@ function formatDate(value: Date | null): string {
  * who was sent a link (and when), who is actually paying.
  */
 export default async function AdminHomePage() {
+  // Access is enforced by the layout guard + middleware; the session here
+  // only decides presentation — staff admins get the tier picker without
+  // dollar amounts.
+  const session = await auth();
+  const showPricing = session?.user?.role === "admin";
+
   const rows = await db
     .select()
     .from(tenants)
@@ -148,7 +155,7 @@ export default async function AdminHomePage() {
       </div>
 
       <h2 style={{ fontSize: 18, margin: "0 0 16px" }}>Create tenant</h2>
-      <CreateTenantForm />
+      <CreateTenantForm showPricing={showPricing} />
     </>
   );
 }
