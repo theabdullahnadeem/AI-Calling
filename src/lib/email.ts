@@ -47,6 +47,28 @@ export async function sendSetPasswordEmail(params: {
   });
 }
 
+export async function sendStaffInviteEmail(params: {
+  to: string;
+  rawToken: string;
+}): Promise<void> {
+  // Same single-use set-password flow as tenant activation — the raw token
+  // only ever exists in this link.
+  const link = `${appUrl()}/set-password?token=${params.rawToken}`;
+  await resendClient().emails.send({
+    from: serverEnv("EMAIL_FROM"),
+    to: params.to,
+    subject: "Your Digivixo staff account",
+    html: wrapper(`
+      <h2 style="font-size: 20px; margin: 0 0 16px;">You've been added to the Digivixo team</h2>
+      <p>A staff account was created for you on the Digivixo admin panel. Set a password to sign in:</p>
+      <p style="margin: 28px 0;">
+        <a href="${link}" style="background: #1F6F5C; color: #FAFAF8; padding: 12px 24px; border-radius: 6px; text-decoration: none;">Set your password</a>
+      </p>
+      <p style="font-size: 13px; color: #5B6472;">This link expires in 48 hours and can be used once. If it expires, ask for a fresh invite.</p>
+    `),
+  });
+}
+
 function intakeRows(
   summary: Array<{ label: string; value: string }>,
 ): string {

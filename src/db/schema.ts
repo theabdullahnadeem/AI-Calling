@@ -73,7 +73,14 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "failed",
 ]);
 
-export const userRoleEnum = pgEnum("user_role", ["tenant_owner", "admin"]);
+// 'admin' is the super-admin (full panel incl. money + staff management);
+// 'staff_admin' runs day-to-day onboarding (create tenants, send payment
+// links, map agents, set intake) but never sees dollar amounts or invoices.
+export const userRoleEnum = pgEnum("user_role", [
+  "tenant_owner",
+  "admin",
+  "staff_admin",
+]);
 
 // ---------------------------------------------------------------------------
 // tenants
@@ -362,10 +369,11 @@ export const users = pgTable(
       .primaryKey()
       .$defaultFn(() => randomUUID()),
     // DIVERGENCE FROM SPEC (flagged in PR): the spec marks tenantId NOT NULL,
-    // but the admin user (role 'admin') belongs to no tenant. Rather than
-    // fabricate a fake tenant row, tenantId is nullable with a CHECK below
-    // enforcing that ONLY admins may have it null — every tenant_owner row
-    // still requires a tenant, exactly as the spec intends.
+    // but admin-side users ('admin', 'staff_admin') belong to no tenant.
+    // Rather than fabricate a fake tenant row, tenantId is nullable with a
+    // CHECK below enforcing that ONLY admin-side roles may have it null —
+    // every tenant_owner row still requires a tenant, exactly as the spec
+    // intends.
     tenantId: varchar("tenant_id", { length: 64 }).references(() => tenants.id),
     // Always stored lowercased — normalize at every app boundary before
     // insert or lookup.
@@ -389,7 +397,11 @@ export const users = pgTable(
     index("users_tenant_id_idx").on(t.tenantId),
     check(
       "users_admin_or_tenant_check",
-      sql`${t.role} = 'admin' OR ${t.tenantId} IS NOT NULL`,
+      // ::text on purpose: comparing the enum column as text keeps the
+      // migration that adds 'staff_admin' single-file — a CHECK referencing a
+      // just-added ENUM VALUE in the same transaction is rejected by Postgres
+      // ("unsafe use of new value"), the text comparison is not.
+      sql`${t.role}::text IN ('admin', 'staff_admin') OR ${t.tenantId} IS NOT NULL`,
     ),
   ],
 );

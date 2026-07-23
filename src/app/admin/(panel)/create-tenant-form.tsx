@@ -18,7 +18,25 @@ const INTAKE_SCHEMA_PLACEHOLDER = JSON.stringify(
 
 const initialState: ActionState = { ok: false };
 
-export function CreateTenantForm() {
+// Two label sets for the tier picker: staff admins never see dollar amounts
+// (tier names + minute caps stay visible — that's the boundary the
+// staff_admin role draws).
+const TIER_LABELS_WITH_PRICING = {
+  pilot: "Pilot — $1,000/mo · 3,000 min",
+  standard: "Standard — $1,700/mo · 5,600 min",
+  pro: "Pro — $2,500/mo · 8,150 min",
+} as const;
+
+const TIER_LABELS_WITHOUT_PRICING = {
+  pilot: "Pilot — 3,000 min/mo",
+  standard: "Standard — 5,600 min/mo",
+  pro: "Pro — 8,150 min/mo",
+} as const;
+
+export function CreateTenantForm({ showPricing }: { showPricing: boolean }) {
+  const tierLabels = showPricing
+    ? TIER_LABELS_WITH_PRICING
+    : TIER_LABELS_WITHOUT_PRICING;
   const [state, formAction, pending] = useActionState(
     createTenantAction,
     initialState,
@@ -64,9 +82,9 @@ export function CreateTenantForm() {
         <label>
           Tier
           <select name="selectedTier" required style={inputStyle}>
-            <option value="pilot">Pilot — $1,000/mo · 3,000 min</option>
-            <option value="standard">Standard — $1,700/mo · 5,600 min</option>
-            <option value="pro">Pro — $2,500/mo · 8,150 min</option>
+            <option value="pilot">{tierLabels.pilot}</option>
+            <option value="standard">{tierLabels.standard}</option>
+            <option value="pro">{tierLabels.pro}</option>
           </select>
         </label>
         <label>
