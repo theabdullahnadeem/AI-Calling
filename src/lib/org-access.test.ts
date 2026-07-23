@@ -5,6 +5,7 @@ import { evaluateOrgAccess, type SessionInfo } from "./org-access";
 const tenantB: SessionInfo = { role: "tenant_owner", tenantSlug: "tenant-b" };
 const admin: SessionInfo = { role: "admin", tenantSlug: null };
 const staff: SessionInfo = { role: "staff_admin", tenantSlug: null };
+const partner: SessionInfo = { role: "partner_admin", tenantSlug: null };
 
 describe("evaluateOrgAccess — /org tenant scoping", () => {
   // The Prompt 2 required test: authenticated as tenant-b, requesting
@@ -78,6 +79,30 @@ describe("evaluateOrgAccess — /admin", () => {
 
   it("allows the admin into staff management", () => {
     expect(evaluateOrgAccess(admin, "/admin/staff")).toBe("allow");
+  });
+});
+
+describe("evaluateOrgAccess — /partner", () => {
+  it("allows a partner admin into the partner panel", () => {
+    expect(evaluateOrgAccess(partner, "/partner")).toBe("allow");
+    expect(evaluateOrgAccess(partner, "/partner/clients/abc")).toBe("allow");
+  });
+
+  it("sends unauthenticated visitors to the shared login", () => {
+    expect(evaluateOrgAccess(null, "/partner")).toBe("login");
+  });
+
+  it("404s every non-partner role probing /partner", () => {
+    expect(evaluateOrgAccess(tenantB, "/partner")).toBe("not-found");
+    expect(evaluateOrgAccess(admin, "/partner")).toBe("not-found");
+    expect(evaluateOrgAccess(staff, "/partner")).toBe("not-found");
+  });
+
+  it("keeps partner admins out of /org and /admin", () => {
+    expect(evaluateOrgAccess(partner, "/org/tenant-a/dashboard")).toBe(
+      "forbidden",
+    );
+    expect(evaluateOrgAccess(partner, "/admin")).toBe("not-found");
   });
 });
 

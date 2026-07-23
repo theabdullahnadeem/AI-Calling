@@ -28,6 +28,7 @@ export const authConfig = {
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.tenantSlug = user.tenantSlug;
+        token.partnerId = user.partnerId;
       }
       return token;
     },
@@ -36,6 +37,7 @@ export const authConfig = {
       session.user.role = token.role;
       session.user.tenantId = token.tenantId;
       session.user.tenantSlug = token.tenantSlug;
+      session.user.partnerId = token.partnerId;
       return session;
     },
   },

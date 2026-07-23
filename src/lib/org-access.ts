@@ -10,7 +10,7 @@
  */
 
 export type SessionInfo = {
-  role: "tenant_owner" | "admin" | "staff_admin";
+  role: "tenant_owner" | "admin" | "staff_admin" | "partner_admin";
   tenantSlug: string | null;
 } | null;
 
@@ -43,6 +43,14 @@ export function evaluateOrgAccess(
     }
     // Non-admins get a 404, not a 403 — no confirmation the panel exists.
     return "not-found";
+  }
+
+  if (pathname === "/partner" || pathname.startsWith("/partner/")) {
+    // Partner panel: partner admins only. Unauthenticated visitors use the
+    // normal tenant login (post-login routes them here by role); everyone
+    // else gets a 404 — same no-existence-leak stance as /admin.
+    if (!session) return "login";
+    return session.role === "partner_admin" ? "allow" : "not-found";
   }
 
   if (pathname === "/org" || pathname.startsWith("/org/")) {

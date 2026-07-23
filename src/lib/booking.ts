@@ -79,6 +79,10 @@ async function attemptBookingEmails(
     (booking.intakeData ?? {}) as Record<string, unknown>,
     config,
   );
+  // Partner-owned tenants get their partner's brand as the email display
+  // name (white-label v1); null keeps the Digivixo default.
+  const { getTenantBrandName } = await import("./branding");
+  const brandName = await getTenantBrandName(tenant);
 
   let allSucceeded = true;
 
@@ -90,6 +94,7 @@ async function attemptBookingEmails(
       customerEmail: booking.customerEmail,
       customerPhone: booking.customerPhone,
       intakeSummary,
+      brandName,
     });
   } catch (error) {
     allSucceeded = false;
@@ -106,6 +111,7 @@ async function attemptBookingEmails(
         tenantName: tenant.name,
         customerName: booking.customerName,
         intakeSummary,
+        brandName,
       });
     } catch (error) {
       allSucceeded = false;

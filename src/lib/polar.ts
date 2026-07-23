@@ -34,12 +34,27 @@ const UUID_PATTERN =
 /**
  * Creates a Polar hosted-checkout session for the tenant's selected tier.
  *
- * polarCustomerReference travels on BOTH channels Polar echoes back in
- * webhooks — checkout metadata and the customer's externalId — so the
- * activation handler can match the payment to the exact tenant row without
- * relying on email matching alone.
+ * Direct tenants: polarCustomerReference travels on BOTH channels Polar
+ * echoes back in webhooks — checkout metadata and the customer's externalId —
+ * so the activation handler can match the payment to the exact tenant row
+ * without relying on email matching alone.
+ *
+ * Partner-paid tenants (white-label v1): the PARTNER is the payer, at the
+ * same retail tier prices. Their billing email becomes the customer, and
+ * externalCustomerId is deliberately OMITTED — it maps 1:1 to a Polar
+ * customer, and one partner pays for many tenants. Matching rides solely on
+ * checkout metadata (which Polar copies onto the order and subscription);
+ * after activation every event matches by the stored polarSubscriptionId.
  */
-export async function createCheckoutForTenant(tenant: Tenant): Promise<string> {
+export async function createCheckoutForTenant(
+  tenant: Tenant,
+  options?: {
+    /** Set for partner-paid checkouts: the partner's billing email. */
+    payerEmail?: string;
+    /** Where Polar returns the payer after success (default /checkout/success). */
+    successUrl?: string;
+  },
+): Promise<string> {
   if (!tenant.selectedTier) {
     throw new Error(`Tenant ${tenant.id} has no selectedTier`);
   }
@@ -60,12 +75,14 @@ export async function createCheckoutForTenant(tenant: Tenant): Promise<string> {
 
   const checkout = await polarClient().checkouts.create({
     products: [productId],
-    customerEmail: tenant.ownerEmail,
-    externalCustomerId: tenant.polarCustomerReference,
+    customerEmail: options?.payerEmail ?? tenant.ownerEmail,
+    ...(options?.payerEmail
+      ? {}
+      : { externalCustomerId: tenant.polarCustomerReference }),
     metadata: {
       polarCustomerReference: tenant.polarCustomerReference,
     },
-    successUrl: `${appUrl()}/checkout/success`,
+    successUrl: options?.successUrl ?? `${appUrl()}/checkout/success`,
   });
 
   return checkout.url;

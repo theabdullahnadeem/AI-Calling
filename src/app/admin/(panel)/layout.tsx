@@ -42,6 +42,12 @@ export default async function AdminPanelLayout({
           >
             Tenants
           </Link>
+          <Link
+            href="/admin/partners"
+            style={{ color: "var(--rail-fg)", fontSize: 13 }}
+          >
+            Partners
+          </Link>
           {isSuperAdmin ? (
             <Link
               href="/admin/staff"

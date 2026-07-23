@@ -17,6 +17,7 @@ function makeTenant(overrides: Partial<Tenant> = {}): Tenant {
     selectedTier: "standard",
     polarCustomerReference: "dvx_ref",
     paymentLinkSentAt: null,
+    partnerId: null,
     retellAgentId: null,
     outboundCallingEnabled: false,
     consentBasis: null,
@@ -56,6 +57,7 @@ function makeSession(): Session {
       role: "tenant_owner",
       tenantId: "tenant-b-id",
       tenantSlug: "tenant-b",
+      partnerId: null,
     },
     expires: new Date(Date.now() + 60_000).toISOString(),
   } as Session;

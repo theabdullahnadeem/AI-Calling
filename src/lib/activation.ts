@@ -110,6 +110,7 @@ export async function activateTenantFromPayment(
       tenantId: tenant.id,
       tenantName: tenant.name,
       ownerEmail: tenant.ownerEmail,
+      partnerId: tenant.partnerId,
       // If the email already had a users row (shouldn't happen — flagged so
       // it's visible), the token we generated was NOT stored; sending the
       // link would produce a dead URL.
@@ -132,10 +133,16 @@ export async function activateTenantFromPayment(
   // the email provider hiccuped. On failure the token row is still valid; the
   // admin can trigger a fresh email later.
   try {
+    // Partner-owned tenants get the partner's brand on the welcome email.
+    const { getTenantBrandName } = await import("./branding");
+    const brandName = await getTenantBrandName({
+      partnerId: result.partnerId,
+    });
     await sendSetPasswordEmail({
       to: result.ownerEmail,
       tenantName: result.tenantName,
       rawToken: token.rawToken,
+      brandName,
     });
   } catch (error) {
     console.error(
