@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -24,6 +24,17 @@ function clientIp(request: Request | undefined): string {
   return forwarded?.split(",")[0]?.trim() || "unknown";
 }
 
+/**
+ * Thrown (not returned as null) when the login rate limit trips, so the
+ * form can say "too many attempts" instead of the misleading "invalid email
+ * or password". The code travels to the client — it reveals only that
+ * rate-limiting exists, never whether the account does: the limit applies
+ * per (ip, email) whether or not that email has a users row.
+ */
+class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
@@ -45,7 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const limit = await loginRateLimit(clientIp(request), email);
         if (!limit.allowed) {
-          return null;
+          throw new RateLimitedError();
         }
 
         const [user] = await db

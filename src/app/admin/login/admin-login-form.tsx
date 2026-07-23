@@ -21,7 +21,11 @@ export function AdminLoginForm() {
       redirect: false,
     });
     if (result?.error) {
-      setError("Invalid email or password.");
+      setError(
+        result.code === "rate_limited"
+          ? "Too many attempts — wait a few minutes, then try again."
+          : "Invalid email or password.",
+      );
       setPending(false);
       return;
     }

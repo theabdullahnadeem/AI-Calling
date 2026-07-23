@@ -2,10 +2,20 @@ import "server-only";
 
 import { Resend } from "resend";
 
-import { appUrl, serverEnv } from "./env";
+import { appUrl, optionalServerEnv, serverEnv } from "./env";
 
 function resendClient(): Resend {
   return new Resend(serverEnv("RESEND_API_KEY"));
+}
+
+/**
+ * Optional Reply-To for every send: replies go to a monitored inbox instead
+ * of bouncing off the notifications address. Spread into each payload so an
+ * unset REPLY_TO adds no header at all.
+ */
+function replyTo(): { replyTo?: string } {
+  const value = optionalServerEnv("REPLY_TO");
+  return value ? { replyTo: value } : {};
 }
 
 /** Admin-entered values are interpolated into HTML — always escape them. */
@@ -57,6 +67,7 @@ export async function sendSetPasswordEmail(params: {
     : `Payment for <strong>${escapeHtml(params.tenantName)}</strong> is confirmed. Set a password to access your call dashboard:`;
   await resendClient().emails.send({
     from: fromWithBrand(params.brandName),
+    ...replyTo(),
     to: params.to,
     subject: params.brandName
       ? `Set your ${params.brandName} dashboard password`
@@ -88,6 +99,7 @@ export async function sendStaffInviteEmail(params: {
   const panelNoun = params.brandName ? "partner panel" : "admin panel";
   await resendClient().emails.send({
     from: fromWithBrand(params.brandName),
+    ...replyTo(),
     to: params.to,
     subject: params.brandName
       ? `Your ${brand} partner account`
@@ -135,6 +147,7 @@ export async function sendBookingCustomerEmail(params: {
     : "Hi,";
   await resendClient().emails.send({
     from: fromWithBrand(params.brandName),
+    ...replyTo(),
     to: params.to,
     subject: `Your booking with ${escapeHtml(params.tenantName)} is confirmed`,
     html: wrapper(
@@ -169,6 +182,7 @@ export async function sendBookingOwnerEmail(params: {
     .join("<br/>");
   await resendClient().emails.send({
     from: fromWithBrand(params.brandName),
+    ...replyTo(),
     to: params.to,
     subject: `New booking captured — ${escapeHtml(params.tenantName)}`,
     html: wrapper(
@@ -191,6 +205,7 @@ export async function sendPaymentLinkEmail(params: {
 }): Promise<void> {
   await resendClient().emails.send({
     from: serverEnv("EMAIL_FROM"),
+    ...replyTo(),
     to: params.to,
     subject: `Digivixo — complete your ${escapeHtml(params.tierLabel)} subscription`,
     html: wrapper(`

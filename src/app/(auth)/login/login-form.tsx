@@ -22,8 +22,14 @@ export function LoginForm() {
     });
     if (result?.error) {
       // One message for every failure cause — including "this tenant hasn't
-      // paid yet, so no account exists". No account enumeration.
-      setError("Invalid email or password.");
+      // paid yet, so no account exists". No account enumeration. The single
+      // exception is the rate limit, which would otherwise masquerade as a
+      // wrong password and send a legitimate user hunting for a typo.
+      setError(
+        result.code === "rate_limited"
+          ? "Too many attempts — wait a few minutes, then try again."
+          : "Invalid email or password.",
+      );
       setPending(false);
       return;
     }

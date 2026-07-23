@@ -47,6 +47,19 @@ export function serverEnv(key: RequiredKey): string {
   return value;
 }
 
+const OPTIONAL_KEYS = [
+  // Reply-To on all outgoing email, so replies land in a monitored inbox
+  // instead of bouncing off the notifications address. Absent = no header.
+  "REPLY_TO",
+] as const;
+
+type OptionalKey = (typeof OPTIONAL_KEYS)[number];
+
+/** Like serverEnv, but absence is a supported configuration, not an error. */
+export function optionalServerEnv(key: OptionalKey): string | null {
+  return process.env[key] || null;
+}
+
 /**
  * APP_URL with any trailing slash stripped. ALWAYS use this instead of
  * serverEnv("APP_URL") when building a URL by appending a path — a value
